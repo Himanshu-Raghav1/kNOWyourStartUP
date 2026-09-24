@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: ReadprocessOnly<{
+}: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
@@ -32,5 +32,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-type ReadprocessOnly<T> = Readonly<T>;
