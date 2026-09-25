@@ -91,12 +91,17 @@ You must output ONLY valid JSON adhering strictly to this schema:
 
 No markdown code fences or narrative wrapping. Valid JSON only.`;
 
-    const userPrompt = `Brand Context:
-Discovery:
-${JSON.stringify(body.discoverData, null, 2)}
+    // Specific pruned context: send only what Stage 3 Shaping & Naming actually needs
+    const disc = body.discoverData;
+    const pos = body.positionData;
 
-Positioning:
-${JSON.stringify(body.positionData, null, 2)}
+    const userPrompt = `Brand Positioning Brief:
+Product Concept: "${disc.rawIdea}"
+Target Audience: "${disc.targetAudience?.primarySegment || pos.targetUserSummary}"
+Category: "${pos.marketCategory}"
+Core Differentiator: "${pos.coreDifferentiator}"
+Value Proposition: "${pos.valueProposition}"
+Positioning: "${pos.positioningStatement}"
 
 Generate 4 diverse naming territories, select the strongest primary candidate, establish the voice with traits to embody and avoid, and provide taglines and messaging pillars.`;
 
@@ -105,6 +110,7 @@ Generate 4 diverse naming territories, select the strongest primary candidate, e
       userPrompt,
       temperature: 0.5
     });
+
 
     return NextResponse.json({
       error: false,

@@ -17,8 +17,13 @@ import {
   Download,
   ShieldCheck,
   Zap,
-  Sparkles
+  Sparkles,
+  Database,
+  AlertTriangle,
+  X,
+  ExternalLink
 } from "lucide-react";
+
 import {
   BrandProject,
   DiscoverData,
@@ -73,11 +78,34 @@ export default function WizardContent() {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [viewJsonMode, setViewJsonMode] = useState<boolean>(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [supabaseStatus, setSupabaseStatus] = useState<"checking" | "connected" | "table_missing" | "unconfigured">("checking");
+  const [showSupabaseModal, setShowSupabaseModal] = useState<boolean>(false);
+  const [isCheckingSupabase, setIsCheckingSupabase] = useState<boolean>(false);
+
+  const checkSupabaseStatus = async () => {
+    setIsCheckingSupabase(true);
+    try {
+      const res = await fetch("/api/projects?action=status");
+      const json = await res.json();
+      if (!json.configured) {
+        setSupabaseStatus("unconfigured");
+      } else if (json.tableExists) {
+        setSupabaseStatus("connected");
+      } else {
+        setSupabaseStatus("table_missing");
+      }
+    } catch {
+      setSupabaseStatus("unconfigured");
+    } finally {
+      setIsCheckingSupabase(false);
+    }
+  };
 
   useEffect(() => {
     if (isMockMode) {
       setProject(MOCK_BRAND_PROJECT);
     }
+    checkSupabaseStatus();
   }, [isMockMode]);
 
   const copyToClipboard = (text: string, key: string) => {
@@ -96,15 +124,22 @@ export default function WizardContent() {
    */
   const persistProjectState = async (updated: BrandProject) => {
     try {
-      await fetch("/api/projects", {
+      const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updated)
       });
+      const json = await res.json();
+      if (json.supabaseSync?.success) {
+        setSupabaseStatus("connected");
+      } else if (json.supabaseSync?.error) {
+        setSupabaseStatus("table_missing");
+      }
     } catch (err: unknown) {
       console.warn("[Persist Warning]: Local state updated; backend sync deferred:", err);
     }
   };
+
 
   /**
    * STAGE 1: Execute Discovery LLM Generation via Google Gemini
@@ -545,6 +580,29 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
 
           {/* Quick Header Actions */}
           <div className="flex items-center gap-2.5">
+            {/* Supabase Live Status Indicator */}
+            {supabaseStatus === "connected" && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-semibold shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Supabase Synced</span>
+              </div>
+            )}
+            {supabaseStatus === "table_missing" && (
+              <button
+                onClick={() => setShowSupabaseModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/35 text-amber-300 hover:bg-amber-500/25 text-[11px] font-mono font-semibold transition cursor-pointer shadow-sm animate-pulse"
+                title="Table 'projects' needs creation in Supabase"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                <span>Supabase: Setup Table</span>
+              </button>
+            )}
+            {supabaseStatus === "checking" && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-[11px] font-mono">
+                <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
+              </div>
+            )}
+
             <button
               onClick={handleExportBrandKit}
               className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-xl bg-[#FF542E] hover:bg-[#FF6B47] text-white font-bold transition shadow-md shadow-[#FF542E]/25"
@@ -566,6 +624,7 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
           </div>
         </div>
       </header>
+
 
       {/* Main Workspace: Left Vertical Stepper + Right Interactive Agency Stage */}
       <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col lg:flex-row gap-6 items-start">
@@ -855,6 +914,155 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
           )}
         </main>
       </div>
+
+      {/* Supabase Table Setup Modal */}
+      {showSupabaseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="glass-panel max-w-2xl w-full p-6 sm:p-8 rounded-3xl border border-[#FF542E]/30 bg-[#0E1424] shadow-2xl space-y-6 relative">
+            <button
+              onClick={() => setShowSupabaseModal(false)}
+              className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-heading font-black text-lg text-white">
+                  Connect Supabase Cloud Save
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Your credentials are set! Just create the table to enable persistence.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300">
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <p className="font-semibold text-white flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#FF542E] text-white flex items-center justify-center text-[11px] font-bold">1</span>
+                  Open the SQL Editor in your Supabase Dashboard
+                </p>
+                <p className="text-slate-400 pl-7">
+                  In your Supabase project (<span className="text-slate-200 font-mono">raghavhimu-spec&apos;s Project</span>), click the <strong className="text-white font-mono">&gt;_ SQL Editor</strong> icon in the left navigation sidebar and click <strong className="text-white">&ldquo;+ New Query&rdquo;</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
+                <p className="font-semibold text-white flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#FF542E] text-white flex items-center justify-center text-[11px] font-bold">2</span>
+                  Paste this SQL schema and click &ldquo;Run&rdquo;
+                </p>
+                <div className="relative pl-7 pt-1">
+                  <pre className="bg-[#131B30] p-4 rounded-xl border border-white/10 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-48 leading-relaxed">
+{`-- Create Projects Table
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default 'Untitled Brand Project',
+  current_stage smallint not null default 1,
+  discover_data jsonb default null,
+  position_data jsonb default null,
+  shape_data jsonb default null,
+  visualize_data jsonb default null,
+  challenge_data jsonb default null,
+  deliver_data jsonb default null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.projects enable row level security;
+create policy "Allow all actions for anonymous/authenticated users"
+  on public.projects for all using (true) with check (true);`}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      const sql = `-- Create Projects Table
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default 'Untitled Brand Project',
+  current_stage smallint not null default 1,
+  discover_data jsonb default null,
+  position_data jsonb default null,
+  shape_data jsonb default null,
+  visualize_data jsonb default null,
+  challenge_data jsonb default null,
+  deliver_data jsonb default null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.projects enable row level security;
+create policy "Allow all actions for anonymous/authenticated users"
+  on public.projects for all using (true) with check (true);`;
+                      copyToClipboard(sql, "supabase-sql");
+                      triggerToast("✓ Schema SQL copied to clipboard!");
+                    }}
+                    className="mt-2 text-xs px-3.5 py-1.5 rounded-lg bg-[#FF542E] hover:bg-[#FF6B47] text-white font-bold transition flex items-center gap-1.5 shadow-md shadow-[#FF542E]/25"
+                  >
+                    {copiedKey === "supabase-sql" ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied SQL!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Schema SQL</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+              <span className="text-[11px] font-mono text-slate-400">
+                Status: {supabaseStatus === "connected" ? (
+                  <span className="text-emerald-400 font-bold">✓ Connected &amp; Table Ready</span>
+                ) : (
+                  <span className="text-amber-400 font-bold">Awaiting table creation</span>
+                )}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await checkSupabaseStatus();
+                    triggerToast("Checked Supabase status!");
+                  }}
+                  disabled={isCheckingSupabase}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs transition flex items-center gap-1.5"
+                >
+                  {isCheckingSupabase ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Checking...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Test Connection</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSupabaseModal(false)}
+                  className="px-4 py-2 rounded-xl bg-[#FF542E] hover:bg-[#FF6B47] text-white font-bold text-xs transition"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

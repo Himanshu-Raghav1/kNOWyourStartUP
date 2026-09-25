@@ -78,20 +78,29 @@ You must return ONLY valid JSON matching this schema:
 
 No markdown code fences or conversational text. Return valid JSON only.`;
 
+    // Specific pruned context: send only what Stage 4 Visuals actually needs
+    const pos = body.positionData;
+    const shape = body.shapeData;
+    const voiceTones = shape.brandVoice?.toneDescriptors?.join(", ") || "Confident, modern";
+    const voiceTraits = shape.brandVoice?.traitsToEmbody?.map((t) => t.trait).join(", ") || "Direct, approachable";
+
     const userPrompt = `Brand Identity Inputs:
-Positioning:
-${JSON.stringify(body.positionData, null, 2)}
+Brand Name: "${shape.selectedName}"
+Tagline: "${shape.selectedTagline}"
+Market Category: "${pos.marketCategory}"
+Target Audience: "${pos.targetUserSummary}"
+Core Differentiator: "${pos.coreDifferentiator}"
+Brand Voice Tones: "${voiceTones}"
+Key Personality Traits: "${voiceTraits}"
 
-Name & Voice:
-${JSON.stringify(body.shapeData, null, 2)}
-
-Create a distinctive, coherent visual brief tailored specifically for this audience and market position.`;
+Create a distinctive, coherent visual brief tailored specifically for this brand name, audience, and market position.`;
 
     const result = await generateGroqJson<VisualizeData>({
       systemPrompt,
       userPrompt,
       temperature: 0.4
     });
+
 
     return NextResponse.json({
       error: false,

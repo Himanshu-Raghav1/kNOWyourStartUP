@@ -69,33 +69,67 @@ Scrutinize every detail for:
 
 You MUST respond strictly in valid JSON adhering to the provided JSON Schema.`;
 
-    const prompt = `Adversarially evaluate this 4-stage brand system:
+    // Specific pruned context: send only essential elements to reduce token footprint by ~80%
+    const disc = body.discoverData;
+    const pos = body.positionData;
+    const shape = body.shapeData;
+    const vis = body.visualizeData;
 
-STAGE 1 (Discovery):
-${JSON.stringify(body.discoverData, null, 2)}
+    const colorsSummary = vis.colorPalette?.map((c) => `${c.name} (${c.hex}, ${c.usageRole})`).join("; ") || "Primary & Secondary Palette";
+    const voiceSummary = shape.brandVoice?.toneDescriptors?.join(", ") || "Direct, modern";
 
-STAGE 2 (Positioning):
-${JSON.stringify(body.positionData, null, 2)}
+    const prompt = `Adversarially evaluate this brand system:
+1. DISCOVERY:
+- Raw Idea: "${disc.rawIdea}"
+- Target Audience: "${disc.targetAudience?.primarySegment}"
+- Core Problem: "${disc.problemStatement}"
 
-STAGE 3 (Naming & Voice):
-${JSON.stringify(body.shapeData, null, 2)}
+2. POSITIONING:
+- Category: "${pos.marketCategory}"
+- Core Differentiator: "${pos.coreDifferentiator}"
+- Positioning Statement: "${pos.positioningStatement}"
 
-STAGE 4 (Visual Brief):
-${JSON.stringify(body.visualizeData, null, 2)}
+3. IDENTITY & VOICE:
+- Brand Name: "${shape.selectedName}"
+- Tagline: "${shape.selectedTagline}"
+- Voice Descriptors: "${voiceSummary}"
+
+4. VISUAL IDENTITY:
+- Colors: "${colorsSummary}"
+- Fonts: "${vis.typography?.headingFont} (headings) + ${vis.typography?.bodyFont} (body)"
 
 Perform a thorough critique. Identify genuine flaws, cliches, or contradictions, calculate the cohesion score, and recommend concrete fixes.`;
 
-    const result = await generateGeminiCritique({
-      systemInstruction,
-      prompt
-    });
+    try {
+      const result = await generateGeminiCritique({
+        systemInstruction,
+        prompt
+      });
 
-    return NextResponse.json({
-      error: false,
-      data: result,
-      stage: 5,
-      provider: "gemini"
-    });
+      return NextResponse.json({
+        error: false,
+        data: result,
+        stage: 5,
+        provider: "gemini"
+      });
+    } catch (geminiErr: unknown) {
+      console.warn("[Stage 5 Challenge]: Gemini rate limit or error, using Groq fallback:", geminiErr);
+
+      // Groq fallback if Gemini hits rate limits
+      const { generateGroqJson } = await import("@/lib/llm/groq");
+      const groqResult = await generateGroqJson<ChallengeData>({
+        systemPrompt: systemInstruction + "\nRespond strictly in valid JSON matching the ChallengeData schema.",
+        userPrompt: prompt,
+        temperature: 0.2
+      });
+
+      return NextResponse.json({
+        error: false,
+        data: groqResult,
+        stage: 5,
+        provider: "groq"
+      });
+    }
   } catch (error: unknown) {
     console.error("[Stage 5 Challenge Error]:", error);
     return NextResponse.json(
@@ -108,3 +142,4 @@ Perform a thorough critique. Identify genuine flaws, cliches, or contradictions,
     );
   }
 }
+

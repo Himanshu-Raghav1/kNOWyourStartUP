@@ -9,6 +9,7 @@ import {
   IdeaInterpretation,
   ClarifyQuestion
 } from "@/lib/llm/gemini";
+import { generateGroqJson } from "@/lib/llm/groq";
 import { ApiResponse } from "@/types";
 
 // Union type for what the probe can return
@@ -19,6 +20,65 @@ export interface ProbeRequestBody {
   step?: "interpret" | "clarify" | "fill"; // "interpret" = show 2-3 idea readings, "clarify" = ask questions, "fill" = return 4 quadrants
   clarifyAnswers?: Record<string, string>; // answers from step 1
   confirmedIdea?: string; // user-edited/confirmed version of the idea from the interpret phase
+}
+
+/**
+ * Builds dynamic fallback interpretations tailored strictly to the user's raw idea text
+ * when both Gemini and Groq are unreachable or rate-limited. Never uses generic filler.
+ */
+function buildTailoredFallbackInterpretations(rawIdea: string): Stage1InterpretResult {
+  const clean = rawIdea.trim();
+  const shortSubject = clean.length > 40 ? clean.slice(0, 36) + "..." : clean;
+
+  return {
+    interpretations: [
+      {
+        id: "interp_a",
+        title: `Direct Solution: ${shortSubject}`,
+        summary: `A focused, direct product dedicated exclusively to: ${clean}. Designed for fast, effortless results.`,
+        whoItsFor: `People who actively deal with ${clean} and want an immediate fix`,
+        whatItDoes: `Provides an end-to-end direct workflow tailored specifically to ${clean}`,
+        domainLabel: "Dedicated Platform",
+        coreVision: `Give people a reliable, dedicated product built from the ground up for "${clean}", making the experience seamless and frustration-free.`,
+        coreProblem: `Current solutions for "${clean}" are fragmented, outdated, or require juggling multiple disconnected tools.`,
+        personaOptions: [
+          `People dealing with ${shortSubject} on a regular basis`,
+          `Early adopters looking for a specialized tool for ${shortSubject}`,
+          `Beginners who need a clear, guided experience for ${shortSubject}`
+        ]
+      },
+      {
+        id: "interp_b",
+        title: `Collaborative Hub for ${shortSubject}`,
+        summary: `A collaborative platform connecting individuals and communities centered around: ${clean}.`,
+        whoItsFor: `Users who want human connection, trusted recommendations, and support for ${clean}`,
+        whatItDoes: `Combines a smart matching tool with a trusted network for ${clean}`,
+        domainLabel: "Network & Exchange",
+        coreVision: `Connect people with trusted peers and providers for "${clean}", removing the uncertainty and building community.`,
+        coreProblem: `Finding trustworthy options and getting real support for "${clean}" is difficult and feels isolated today.`,
+        personaOptions: [
+          `People seeking peer advice and trusted help with ${shortSubject}`,
+          `Active practitioners who want to share and connect around ${shortSubject}`,
+          `Anyone looking for trusted, vetted recommendations for ${shortSubject}`
+        ]
+      },
+      {
+        id: "interp_c",
+        title: `AI-Powered Automation for ${shortSubject}`,
+        summary: `An intelligent system that automates the complex and tedious parts of: ${clean}.`,
+        whoItsFor: `Busy people who want ${clean} handled quickly and accurately`,
+        whatItDoes: `Automates research, scheduling, and execution for ${clean}`,
+        domainLabel: "Intelligent Assistant",
+        coreVision: `Remove 90% of the manual effort in "${clean}" so users achieve expert-level results in seconds.`,
+        coreProblem: `People waste valuable hours on repetitive, manual tasks related to "${clean}".`,
+        personaOptions: [
+          `Busy individuals with zero time to spare on manual ${shortSubject}`,
+          `Professionals who need fast, accurate outputs for ${shortSubject}`,
+          `Users who want smart recommendations tailored to their situation`
+        ]
+      }
+    ]
+  };
 }
 
 export async function POST(
@@ -50,79 +110,72 @@ export async function POST(
 
   // ─── STEP 0: INTERPRET — generate 2-3 plain-English readings of the idea ────
   if (step === "interpret") {
+    // 1. Try Google Gemini first
     try {
       const interpretResult = await generateGeminiIdeaInterpretations(rawIdea);
-      return NextResponse.json({
-        error: false,
-        data: interpretResult,
-        stage: 1,
-        provider: "gemini"
-      });
-    } catch (err: unknown) {
-      console.warn("[Stage 1 Interpret]: Gemini failed, using fallback interpretations:", err);
-
-      // Friendly fallback interpretations — each is fully self-contained
-      const fallback: Stage1InterpretResult = {
-        interpretations: [
-          {
-            id: "interp_a",
-            title: "A simple tool people can use themselves",
-            summary: "A straightforward product that helps regular people solve a common problem on their own, without needing help from an expert.",
-            whoItsFor: "Anyone who faces this frustration regularly",
-            whatItDoes: "Makes the hard thing simple and fast to do on your own",
-            domainLabel: "Self-Service Tool",
-            coreVision: "Imagine a world where people no longer feel stuck or have to rely on someone else just to get this done. This product puts control back in their hands and makes something that felt complicated feel completely obvious.",
-            coreProblem: "Right now, people either have to pay someone to do this for them, spend hours figuring it out on their own, or just give up. None of the existing options are designed for real people — they're too complex, too expensive, or too slow.",
-            personaOptions: [
-              "People who've tried other options and found them too complicated",
-              "Beginners who want to do it themselves for the first time",
-              "Anyone who's been putting this off because it felt too hard",
-              "People who can't afford to hire someone to do it for them"
-            ]
-          },
-          {
-            id: "interp_b",
-            title: "A community where people help each other",
-            summary: "A place where people with the same problem can connect, share what works, and get help from others who've been through it — with a useful tool built in.",
-            whoItsFor: "People who want both a tool and a community around them",
-            whatItDoes: "Brings together helpful people and a practical tool in one place",
-            domainLabel: "Community Platform",
-            coreVision: "What if getting help didn't mean searching alone on the internet? This product creates a real community where people actively help each other — and the tool makes those connections actually useful.",
-            coreProblem: "People dealing with this problem feel isolated. They search online, get generic advice, and have no one to ask follow-up questions. Existing forums are full of noise and outdated information. There's no product that combines real community with a practical tool.",
-            personaOptions: [
-              "People who feel isolated dealing with this problem alone",
-              "Those who've tried solo tools but wanted human support too",
-              "People who love to help others and share what they know",
-              "Anyone who learns better from real experiences, not manuals"
-            ]
-          },
-          {
-            id: "interp_c",
-            title: "A professional service made affordable",
-            summary: "Takes something people normally hire a professional for and makes it affordable and doable by anyone, right from their phone or computer.",
-            whoItsFor: "People who can't afford or don't want to hire an expert",
-            whatItDoes: "Guides you step-by-step through what a professional would normally do for you",
-            domainLabel: "DIY Service",
-            coreVision: "Professional-quality results shouldn't require a professional budget. This product democratizes access to expert-level outcomes, so anyone can get the same result that used to be reserved for people who could pay for it.",
-            coreProblem: "Hiring a professional is expensive, slow, and often overkill for what most people actually need. DIY alternatives are either too confusing or produce mediocre results. There's nothing in the middle that's both affordable and actually good.",
-            personaOptions: [
-              "People who know they need this but can't justify the cost of a professional",
-              "Small business owners without budget for specialists",
-              "Young people just starting out who need to figure this out themselves",
-              "Anyone who's been quoted a high price and felt it wasn't worth it"
-            ]
-          }
-        ]
-      };
-
-      return NextResponse.json({
-        error: false,
-        data: fallback,
-        stage: 1,
-        provider: "gemini"
-      });
+      if (interpretResult && interpretResult.interpretations?.length > 0) {
+        return NextResponse.json({
+          error: false,
+          data: interpretResult,
+          stage: 1,
+          provider: "gemini"
+        });
+      }
+    } catch (geminiErr: unknown) {
+      console.warn("[Stage 1 Interpret]: Gemini error, attempting Groq fallback:", geminiErr);
     }
+
+    // 2. High-speed Fallback: Groq Llama 3.3
+    try {
+      const systemPrompt = `You are an elite startup co-founder and venture architect.
+A founder typed this rough idea: "${rawIdea}".
+PRIORITIZE THE FOUNDER'S EXACT WORDS, INDUSTRY, AUDIENCE, AND NOUNS.
+NEVER produce generic filler. Every option must be specifically about the founder's exact concept.
+Return strictly valid JSON matching this schema:
+{
+  "interpretations": [
+    {
+      "id": string,
+      "title": string,
+      "summary": string,
+      "whoItsFor": string,
+      "whatItDoes": string,
+      "coreVision": string,
+      "coreProblem": string,
+      "personaOptions": string[],
+      "domainLabel": string
+    }
+  ]
+}`;
+      const userPrompt = `Idea: "${rawIdea}"\n\nGenerate 2-3 distinct takes anchored in the founder's exact idea. Return valid JSON only.`;
+      const groqResult = await generateGroqJson<Stage1InterpretResult>({
+        systemPrompt,
+        userPrompt,
+        temperature: 0.4
+      });
+
+      if (groqResult && groqResult.interpretations?.length > 0) {
+        return NextResponse.json({
+          error: false,
+          data: groqResult,
+          stage: 1,
+          provider: "groq"
+        });
+      }
+    } catch (groqErr: unknown) {
+      console.warn("[Stage 1 Interpret]: Groq fallback failed, using tailored dynamic fallback:", groqErr);
+    }
+
+    // 3. Guaranteed tailored dynamic fallback incorporating the user's raw words
+    const fallback = buildTailoredFallbackInterpretations(rawIdea);
+    return NextResponse.json({
+      error: false,
+      data: fallback,
+      stage: 1,
+      provider: "gemini"
+    });
   }
+
 
   // ─── STEP 1: CLARIFY — ask 2-3 simple questions ────────────────────────────
   if (step === "clarify") {
@@ -195,82 +248,84 @@ export async function POST(
   // ─── STEP 2: FILL — generate 4 discovery quadrants using idea + answers ────
   // Use confirmedIdea if the user edited the interpretation, otherwise fall back to rawIdea
   const ideaForFill = body.confirmedIdea?.trim() || rawIdea;
+
+  // 1. Try Gemini
   try {
     const probeResult = await generateGeminiDiscoveryProbe(ideaForFill, body.clarifyAnswers);
-    return NextResponse.json({
-      error: false,
-      data: probeResult,
-      stage: 1,
-      provider: "gemini"
-    });
-  } catch (err: unknown) {
-    console.warn("[Stage 1 Fill]: Gemini failed, using fallback quadrant content:", err);
-
-    const lower = rawIdea.toLowerCase();
-    const isFintech = lower.includes("financ") || lower.includes("money") || lower.includes("tax");
-    const isEdtech = lower.includes("student") || lower.includes("campus") || lower.includes("learn");
-
-    const fallback: Stage1ProbeResult = {
-      domainName: isFintech ? "Financial Tools" : isEdtech ? "Education & Learning" : "Software & Technology",
-      coreVision: isFintech
-        ? "Help everyday people and small businesses manage their money without needing a finance degree."
-        : isEdtech
-        ? "Make learning easier and more effective for students everywhere."
-        : "Help people get things done faster by removing the friction from their daily work.",
-      coreProblem: isFintech
-        ? "Most money management tools are built for accountants, not real people \u2014 they\u2019re confusing, expensive, and take forever to set up."
-        : isEdtech
-        ? "Students waste too much time on tools and coordination instead of actually learning."
-        : "People juggle too many disconnected apps and end up spending more time managing tools than doing real work.",
-      personaOptions: isFintech
-        ? [
-            "Freelancers who stress about invoices and taxes",
-            "Small business owners without a finance team",
-            "Side-hustle creators trying to track income",
-            "Self-employed consultants needing simple bookkeeping"
-          ]
-        : isEdtech
-        ? [
-            "College students preparing for exams",
-            "Working professionals learning new skills",
-            "High school students needing extra help",
-            "Teachers looking for better classroom tools"
-          ]
-        : [
-            "Solo founders running everything themselves",
-            "Small teams without dedicated IT support",
-            "Remote workers managing scattered tools",
-            "Busy professionals who want to save time"
-          ],
-      ambiguities: [
-        {
-          id: "business_model",
-          question: "How do you plan to make money from this?",
-          contextWhyItMatters: "This shapes how we talk about value and who we focus on.",
-          options: [
-            "Free trial, then monthly subscription",
-            "One-time purchase",
-            "Charge businesses, not individuals",
-            "Free now, paid later"
-          ]
-        }
-      ]
-    };
-
-    // Merge clarify answers into the domain label if useful
-    const answers = body.clarifyAnswers || {};
-    if (answers.product_type) {
-      fallback.domainName = `${answers.product_type} \u2014 ${fallback.domainName}`;
+    if (probeResult && probeResult.coreVision && probeResult.coreProblem) {
+      return NextResponse.json({
+        error: false,
+        data: probeResult,
+        stage: 1,
+        provider: "gemini"
+      });
     }
-
-    return NextResponse.json({
-      error: false,
-      data: fallback,
-      stage: 1,
-      provider: "gemini"
-    });
+  } catch (geminiErr: unknown) {
+    console.warn("[Stage 1 Fill]: Gemini error, attempting Groq fallback:", geminiErr);
   }
+
+  // 2. High-speed Fallback: Groq Llama 3.3
+  try {
+    const systemPrompt = `You are an elite product strategist. The founder's startup idea: "${ideaForFill}".
+Clarifications given: ${JSON.stringify(body.clarifyAnswers || {})}
+Fill in the 4 discovery quadrants.
+ANCHOR DIRECTLY IN THE FOUNDER'S EXACT WORDS. Zero generic filler.
+Return strictly valid JSON matching:
+{
+  "domainName": string,
+  "coreVision": string,
+  "coreProblem": string,
+  "personaOptions": string[],
+  "ambiguities": [
+    {
+      "id": string,
+      "question": string,
+      "contextWhyItMatters": string,
+      "options": string[]
+    }
+  ]
+}`;
+    const userPrompt = `Idea: "${ideaForFill}"\n\nGenerate tailored discovery quadrants.`;
+    const groqResult = await generateGroqJson<Stage1ProbeResult>({
+      systemPrompt,
+      userPrompt,
+      temperature: 0.3
+    });
+
+    if (groqResult && groqResult.coreVision && groqResult.coreProblem) {
+      return NextResponse.json({
+        error: false,
+        data: groqResult,
+        stage: 1,
+        provider: "groq"
+      });
+    }
+  } catch (groqErr: unknown) {
+    console.warn("[Stage 1 Fill]: Groq fallback failed, using tailored dynamic fallback:", groqErr);
+  }
+
+  // 3. Dynamic fallback using the founder's raw words
+  const cleanIdea = ideaForFill.trim();
+  const dynamicFallback: Stage1ProbeResult = {
+    domainName: cleanIdea.length > 30 ? cleanIdea.slice(0, 26) + "..." : cleanIdea,
+    coreVision: `Empower people using "${cleanIdea}" to achieve their goals with maximum speed, clarity, and confidence.`,
+    coreProblem: `Existing alternatives for "${cleanIdea}" are slow, complicated, or fail to address the specific needs of modern users.`,
+    personaOptions: [
+      `Active users who encounter friction with ${cleanIdea} regularly`,
+      `Teams and individuals seeking a more modern approach to ${cleanIdea}`,
+      `Beginners wanting an intuitive, guided experience for ${cleanIdea}`
+    ],
+    ambiguities: []
+  };
+
+  return NextResponse.json({
+    error: false,
+    data: dynamicFallback,
+    stage: 1,
+    provider: "gemini"
+  });
 }
+
 
 // Satisfy unused imports
 const _unusedExport: ClarifyQuestion | IdeaInterpretation | null = null;

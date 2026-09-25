@@ -81,18 +81,26 @@ Output strictly valid JSON matching this TypeScript schema:
 
 Do not include markdown codeblocks or conversational text. Return valid JSON only.`;
 
-    const userPrompt = `Synthesize positioning from this structured discovery context:
-${JSON.stringify(body.discoverData, null, 2)}
-${body.archetype ? `\nStrategic Archetype Selected: "${body.archetype}"` : ""}
-${body.betterAlternative ? `\nOld / Frustrating Experience Being Made Obsolete: "${body.betterAlternative}"` : ""}
+    // Specific pruned context: send only what Stage 2 Positioning actually needs
+    const d = body.discoverData;
+    const targetSegment = d.targetAudience?.primarySegment || "Core users";
+    const painPoints = d.targetAudience?.acutePainPoints?.slice(0, 3) || [];
 
-Define the category, the sharpest differentiator, and the defensible positioning statement.`;
+    const userPrompt = `Synthesize positioning from this targeted discovery context:
+Product Concept: "${d.rawIdea}"
+Target Audience: "${targetSegment}"
+Problem Worth Solving: "${d.problemStatement}"
+Acute Pain Points: ${JSON.stringify(painPoints)}
+Primary Value Hook: "${d.primaryValueHook || ""}"
+${body.archetype ? `Strategic Archetype: "${body.archetype}"\n` : ""}${body.betterAlternative ? `Status Quo Being Replaced: "${body.betterAlternative}"\n` : ""}
+Define the category, the sharpest differentiator, status-quo contrast, and defensible positioning statement.`;
 
     const result = await generateGroqJson<PositionData>({
       systemPrompt,
       userPrompt,
       temperature: 0.3
     });
+
 
     return NextResponse.json({
       error: false,

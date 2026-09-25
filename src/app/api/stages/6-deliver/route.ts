@@ -84,15 +84,23 @@ You must return ONLY valid JSON matching this schema:
 
 No markdown code fences or conversational text. Return valid JSON only.`;
 
-    const userPrompt = `Brand Identity & Feedback Context:
-Positioning:
-${JSON.stringify(body.positionData, null, 2)}
+    // Specific pruned context: send only what Stage 6 Launch Kit actually needs
+    const pos = body.positionData;
+    const shape = body.shapeData;
+    const voiceTones = shape.brandVoice?.toneDescriptors?.join(", ") || "Direct, modern";
+    const remedies = body.challengeData?.proposedAlternatives
+      ?.map((a) => `${a.originalElement} -> ${a.alternativeProposal}`)
+      .join("; ");
 
-Name & Voice:
-${JSON.stringify(body.shapeData, null, 2)}
-
-${body.challengeData ? `Critique & Validation Remedies:\n${JSON.stringify(body.challengeData.proposedAlternatives, null, 2)}` : ""}
-
+    const userPrompt = `Brand Launch Kit Brief:
+Brand Name: "${shape.selectedName}"
+Tagline: "${shape.selectedTagline}"
+Target Audience: "${pos.targetUserSummary}"
+Market Category: "${pos.marketCategory}"
+Core Differentiator: "${pos.coreDifferentiator}"
+Value Proposition: "${pos.valueProposition}"
+Voice & Tone: "${voiceTones}"
+${remedies ? `Validation Remedies to Incorporate: "${remedies}"\n` : ""}
 Generate a high-impact, launch-ready asset kit that stays strictly faithful to the brand voice and guardrails.`;
 
     const result = await generateGroqJson<DeliverData>({
@@ -100,6 +108,7 @@ Generate a high-impact, launch-ready asset kit that stays strictly faithful to t
       userPrompt,
       temperature: 0.4
     });
+
 
     return NextResponse.json({
       error: false,

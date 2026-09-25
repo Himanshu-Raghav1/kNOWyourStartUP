@@ -16,7 +16,12 @@ import { ChallengeData, DiscoverData } from "@/types";
 const geminiApiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-pro";
+// Safely sanitize GEMINI_MODEL: if undefined or non-existent (e.g. "gemini-3.8-flash"), use high-speed stable model
+const rawGeminiModel = (process.env.GEMINI_MODEL || "").trim();
+export const GEMINI_MODEL =
+  !rawGeminiModel || rawGeminiModel.includes("3.8") || !rawGeminiModel.startsWith("gemini-")
+    ? "gemini-1.5-flash"
+    : rawGeminiModel;
 
 // ============================================================================
 // STAGE 1 — PHASE 0: IDEA INTERPRETATIONS (2-3 plain-English readings of the raw idea)
@@ -344,40 +349,42 @@ export async function generateGeminiStructuredJson<T>(
 export async function generateGeminiIdeaInterpretations(
   rawIdea: string
 ): Promise<Stage1InterpretResult> {
-  const systemInstruction = `You help people turn rough startup ideas into real brands.
+  const trimmedIdea = rawIdea.trim();
+  const systemInstruction = `You are an elite startup co-founder and product strategist.
+A founder just shared their rough idea: "${trimmedIdea}".
 
-A person just typed a rough idea. Your job: think of 2 or 3 GENUINELY DIFFERENT ways this idea could work. Each interpretation is a complete picture of one version of the idea.
+YOUR HIGHEST PRIORITY:
+Directly adopt and prioritize the EXACT words, industry, audience, and mechanics given in the founder's raw idea.
+NEVER generate generic, vague, or hardcoded options like "a simple self-service tool" or "a generic community".
+If the founder mentions dogs, every option MUST be about dogs.
+If the founder mentions food, architecture, finance, crypto, or education, every option MUST be tailored to that exact domain.
 
-For EACH interpretation you must fill in:
-1. title — 5-7 casual words describing this version
-2. summary — 1-2 casual sentences describing what this version IS
-3. whoItsFor — one short phrase for the main user (real person, not a category)
-4. whatItDoes — one sentence on what the product actually does
-5. coreVision — 2-3 sentences: the big dream, what success looks like, how it changes lives. Be specific and honest.
-6. coreProblem — 2-3 sentences: the real pain this version solves. Name what sucks about current options today.
-7. personaOptions — 3-5 specific, real-sounding types of people who would love this version
-8. domainLabel — short 2-4 word label for the product type (e.g. "Pet Care Marketplace")
+Generate 2 or 3 GENUINELY DIFFERENT, practical product takes for THIS SPECIFIC IDEA.
+Each interpretation must be self-contained:
+1. title: 5-7 punchy words capturing this specific angle (e.g. "On-Demand Dog Sitting Marketplace" or "Peer-to-Peer Dog Host Exchange")
+2. summary: 1-2 plain-English sentences describing how THIS version works using the founder's concept.
+3. whoItsFor: The specific real person who needs this (e.g. "Working dog owners commuting 8+ hours/day")
+4. whatItDoes: Exactly what the product does in everyday words
+5. coreVision: The inspiring big dream for THIS specific product
+6. coreProblem: The actual friction it eliminates in this specific market
+7. personaOptions: 3-5 hyper-specific real personas who would love this version
+8. domainLabel: Concise 2-4 word product label (e.g. "Pet Care Marketplace")
 
-CRITICAL RULES:
-- Plain everyday language only. No jargon. No buzzwords.
-- Never say: "platform", "ecosystem", "synergy", "stakeholder", "monetize", "scalable", "disrupt", "B2B", "SaaS".
-- Real people descriptions only: "dog owners who work long shifts" NOT "target segment".
-- Each interpretation must be meaningfully different from the others — a different angle, a different user, or a different model.
-- Vision and problem must be SPECIFIC to THIS idea — not generic startup copy.
-- Persona options must sound like real people you could describe to a friend.`;
+Plain language only. Zero corporate buzzwords. Output strictly valid JSON matching the schema.`;
 
-  const prompt = `Here is someone's rough startup idea:
-"${rawIdea.trim()}"
+  const prompt = `The founder's raw startup idea is:
+"${trimmedIdea}"
 
-Give 2-3 meaningfully different ways this idea could work. For each version, fill in ALL the fields — especially the big dream, the real problem it solves, and exactly who would love it. Be specific to this idea, not generic.`;
+Extract the founder's core topic and words. Produce 2-3 tailored interpretations anchored directly to their idea. Return valid JSON only.`;
 
   return generateGeminiStructuredJson<Stage1InterpretResult>({
     systemInstruction,
     prompt,
     responseSchema: STAGE1_INTERPRET_SCHEMA,
-    temperature: 0.65
+    temperature: 0.5
   });
 }
+
 
 /**
  * Stage 1 — Phase 1: Generates 2-3 simple clarifying questions to understand the raw idea better.
