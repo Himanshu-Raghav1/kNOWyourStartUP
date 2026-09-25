@@ -198,12 +198,12 @@ export interface ApiSuccessResponse<T> {
   error: false;
   data: T;
   stage: number;
-  provider: "groq" | "gemini";
+  provider: "groq" | "gemini" | "openrouter";
 }
 
 export interface ApiErrorResponse {
   error: true;
-  code: "LLM_PARSE_FAILURE" | "VALIDATION_ERROR" | "UPSTREAM_DATA_MISSING" | "INTERNAL_SERVER_ERROR";
+  code: "LLM_PARSE_FAILURE" | "VALIDATION_ERROR" | "UPSTREAM_DATA_MISSING" | "INTERNAL_SERVER_ERROR" | "OPENROUTER_ERROR";
   message: string;
   details?: unknown;
 }

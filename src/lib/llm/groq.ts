@@ -28,16 +28,31 @@ export interface GroqGenerationOptions {
   maxTokens?: number;
 }
 
+function extractJson<T>(text: string): T {
+  let cleaned = text.trim();
+  const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (match && match[1]) {
+    cleaned = match[1].trim();
+  }
+  const first = cleaned.indexOf("{");
+  const last = cleaned.lastIndexOf("}");
+  if (first !== -1 && last !== -1 && last > first) {
+    cleaned = cleaned.slice(first, last + 1);
+  }
+  return JSON.parse(cleaned) as T;
+}
+
 /**
  * Executes a structured JSON prompt against the Groq API with 1 automatic retry on parse failure.
  */
 export async function generateGroqJson<T>(
   options: GroqGenerationOptions
 ): Promise<T> {
-  const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 4096 } = options;
+  const { systemPrompt, userPrompt, temperature = 0.4, maxTokens = 3000 } = options;
 
   let attempts = 0;
   const maxAttempts = 2; // Initial attempt + 1 retry
+  const isQwen = GROQ_MODEL.toLowerCase().includes("qwen");
 
   while (attempts < maxAttempts) {
     attempts++;
@@ -48,7 +63,7 @@ export async function generateGroqJson<T>(
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        response_format: { type: "json_object" },
+        ...(isQwen ? {} : { response_format: { type: "json_object" } }),
         temperature,
         max_tokens: maxTokens
       });
@@ -58,7 +73,7 @@ export async function generateGroqJson<T>(
         throw new Error("Empty response received from Groq LLM.");
       }
 
-      const parsed: T = JSON.parse(rawContent) as T;
+      const parsed: T = extractJson<T>(rawContent);
       return parsed;
     } catch (error: unknown) {
       if (attempts >= maxAttempts) {

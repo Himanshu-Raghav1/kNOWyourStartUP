@@ -81,6 +81,53 @@ function buildTailoredFallbackInterpretations(rawIdea: string): Stage1InterpretR
   };
 }
 
+/**
+ * Builds dynamically synthesized clarifying options based strictly on the founder's raw words.
+ * Questions are standard, but ZERO answers/options are hardcoded.
+ */
+function buildDynamicClarifyFallback(rawIdea: string): Stage1ClarifyResult {
+  const clean = rawIdea.trim();
+  const shortSubject = clean.length > 35 ? clean.slice(0, 32) + "..." : clean;
+
+  return {
+    questions: [
+      {
+        id: "target_user",
+        question: "Who will be the first group of people to use this?",
+        hint: "Choosing a sharp early adopter group helps focus your launch.",
+        options: [
+          `Individual users actively seeking a better way for ${shortSubject}`,
+          `Teams and groups managing ${shortSubject} together on a regular basis`,
+          `Early adopters frustrated with existing outdated solutions for ${shortSubject}`,
+          `First-time users who need an intuitive, guided experience for ${shortSubject}`
+        ]
+      },
+      {
+        id: "delivery_model",
+        question: "How will users primarily experience or access your product?",
+        hint: "This clarifies the core product format and daily user workflow.",
+        options: [
+          `A dedicated web & mobile application focused 100% on ${shortSubject}`,
+          `An automated platform that handles ${shortSubject} in the background`,
+          `A peer-to-peer network and community connecting people around ${shortSubject}`,
+          `An on-demand service hub delivering verified, high-quality results for ${shortSubject}`
+        ]
+      },
+      {
+        id: "core_value",
+        question: "What is the single most valuable outcome this delivers for them?",
+        hint: "This becomes the central hook of your brand positioning.",
+        options: [
+          `Eliminating the biggest manual frustration and time wasted on ${shortSubject}`,
+          `Getting trustworthy, high-confidence results for ${shortSubject} instantly`,
+          `Connecting with the right verified peers and resources for ${shortSubject}`,
+          `Achieving effortless, seamless outcomes for ${shortSubject} from day one`
+        ]
+      }
+    ]
+  };
+}
+
 export async function POST(
   req: NextRequest
 ): Promise<NextResponse<ApiResponse<ProbeResponse>>> {
@@ -89,7 +136,7 @@ export async function POST(
     body = (await req.json()) as ProbeRequestBody;
   } catch {
     return NextResponse.json(
-      { error: true, code: "PARSE_ERROR", message: "Invalid JSON body." },
+      { error: true, code: "LLM_PARSE_FAILURE", message: "Invalid JSON body." },
       { status: 400 }
     );
   }
@@ -177,72 +224,93 @@ Return strictly valid JSON matching this schema:
   }
 
 
-  // ─── STEP 1: CLARIFY — ask 2-3 simple questions ────────────────────────────
+  // ─── STEP 1: CLARIFY — standard questions, 100% dynamic AI-generated options ─
   if (step === "clarify") {
+    // 1. High-speed Engine: Groq with Qwen/Llama (fast, dynamic options grounded strictly in rawIdea)
+    try {
+      const systemPrompt = `You are a startup co-founder and product strategist helping clarify a founder's rough idea.
+The founder typed this raw idea: "${rawIdea}".
+
+We have 3 fixed questions to help frame the brand:
+1. "Who will be the first group of people to use this?" (id: "target_user", hint: "Choosing a sharp early adopter group helps focus your launch.")
+2. "How will users primarily experience or access your product?" (id: "delivery_model", hint: "This clarifies the core product format and daily user workflow.")
+3. "What is the single most valuable outcome this delivers for them?" (id: "core_value", hint: "This becomes the central hook of your brand positioning.")
+
+CRITICAL RULE — ZERO HARDCODED ANSWERS:
+Every single answer option in the "options" array for each question MUST be dynamically generated, tailored specifically to "${rawIdea}".
+Use the founder's exact words, nouns, and industry.
+NEVER return generic options like "Mobile app", "Website", "Saves time", or "Professionals".
+Every option must be a concrete, realistic answer specific to this startup concept.
+
+Return strictly valid JSON matching this schema:
+{
+  "questions": [
+    {
+      "id": "target_user",
+      "question": "Who will be the first group of people to use this?",
+      "hint": "Choosing a sharp early adopter group helps focus your launch.",
+      "options": [string, string, string, string]
+    },
+    {
+      "id": "delivery_model",
+      "question": "How will users primarily experience or access your product?",
+      "hint": "This clarifies the core product format and daily user workflow.",
+      "options": [string, string, string, string]
+    },
+    {
+      "id": "core_value",
+      "question": "What is the single most valuable outcome this delivers for them?",
+      "hint": "This becomes the central hook of your brand positioning.",
+      "options": [string, string, string, string]
+    }
+  ]
+}`;
+
+      const groqClarify = await generateGroqJson<Stage1ClarifyResult>({
+        systemPrompt,
+        userPrompt: `Raw Idea: "${rawIdea}"\nGenerate the 3 questions with tailored dynamic answer options. Return valid JSON only.`,
+        temperature: 0.3
+      });
+
+      if (
+        groqClarify &&
+        groqClarify.questions?.length > 0 &&
+        groqClarify.questions.every((q) => q.options && q.options.length > 0)
+      ) {
+        return NextResponse.json({
+          error: false,
+          data: groqClarify,
+          stage: 1,
+          provider: "groq"
+        });
+      }
+    } catch (groqErr: unknown) {
+      console.warn("[Stage 1 Clarify]: Groq failed, attempting Gemini fallback:", groqErr);
+    }
+
+    // 2. Secondary Engine: Gemini
     try {
       const clarifyResult = await generateGeminiClarifyQuestions(rawIdea);
-      return NextResponse.json({
-        error: false,
-        data: clarifyResult,
-        stage: 1,
-        provider: "gemini"
-      });
-    } catch (err: unknown) {
-      console.warn("[Stage 1 Clarify]: Gemini failed, using keyword-based fallback questions:", err);
-
-      // Smart fallback — derive specific questions from the idea text
-      const lower = rawIdea.toLowerCase();
-
-      // Detect domain signals
-      const isPetRelated   = lower.includes("pet") || lower.includes("dog") || lower.includes("cat") || lower.includes("animal");
-      const isFoodRelated  = lower.includes("food") || lower.includes("restaurant") || lower.includes("cook") || lower.includes("meal") || lower.includes("recipe");
-      const isHealthFit    = lower.includes("health") || lower.includes("fitness") || lower.includes("workout") || lower.includes("gym") || lower.includes("diet");
-      const isEducation    = lower.includes("learn") || lower.includes("teach") || lower.includes("tutor") || lower.includes("course") || lower.includes("student");
-      const isFinance      = lower.includes("money") || lower.includes("financ") || lower.includes("invest") || lower.includes("budget") || lower.includes("saving");
-      const isMarketplace  = lower.includes("marketplace") || lower.includes("hire") || lower.includes("connect") || lower.includes("find") || lower.includes("match") || lower.includes("book");
-      const isLocal        = lower.includes("nearby") || lower.includes("local") || lower.includes("city") || lower.includes("neighborhood");
-
-      let q1: Stage1ClarifyResult["questions"][0];
-      let q2: Stage1ClarifyResult["questions"][0];
-
-      if (isPetRelated && isMarketplace) {
-        q1 = { id: "service_model", question: "Will sitters come to the owner's home, or will owners bring pets to sitters?", hint: "This changes how the whole booking experience works.", options: ["Sitters come to the owner's home", "Owners drop pets at the sitter's place", "Both — owners can choose", "Day visits only, no overnight stays"] };
-        q2 = { id: "verification", question: "How will you make sure sitters are trustworthy?", hint: "This is usually the #1 concern for pet owners.", options: ["Background checks before listing", "Reviews and ratings from other owners", "A quick video interview with our team", "Sitters apply and we vet them manually"] };
-      } else if (isFoodRelated) {
-        q1 = { id: "delivery_model", question: "Will food be delivered, picked up, or eaten on-site?", hint: "This shapes the whole logistics and user experience.", options: ["Delivered to the customer", "Customer picks it up", "Eaten at the location", "All of the above"] };
-        q2 = { id: "who_cooks", question: "Who is actually making the food?", hint: "This determines how you grow and manage quality.", options: ["Home cooks / individuals", "Small local restaurants", "Professional chefs", "A central kitchen we control"] };
-      } else if (isHealthFit) {
-        q1 = { id: "format", question: "Will this be something people do on their own, or with a trainer/coach?", hint: "This changes the whole product experience.", options: ["Fully self-guided, no human involved", "AI coach gives personalised guidance", "Real human trainers or coaches", "A mix — self-guided with optional coaching"] };
-        q2 = { id: "location", question: "Will people use this at home, at a gym, or outside?", hint: "Where they use it changes what features matter most.", options: ["At home with no equipment", "At home with basic equipment", "At a gym", "Outdoors — running, cycling, etc."] };
-      } else if (isEducation) {
-        q1 = { id: "teaching_model", question: "Will there be a live teacher, or is it all pre-recorded?", hint: "This changes how you build the product and who you hire.", options: ["Live sessions with a real teacher", "Pre-recorded videos students watch anytime", "AI that adapts to each student", "A mix of live and pre-recorded"] };
-        q2 = { id: "age_group", question: "Who is the main person learning?", hint: "Age and context completely change what works.", options: ["School kids (under 18)", "College students", "Working adults learning new skills", "People switching careers"] };
-      } else if (isFinance) {
-        q1 = { id: "finance_task", question: "What's the main money task this helps with?", hint: "Being specific here helps us focus the whole brand.", options: ["Tracking daily spending", "Saving toward a goal", "Managing invoices and getting paid", "Investing or growing money"] };
-        q2 = { id: "who_manages", question: "Will users manage everything themselves, or does your product do it for them?", hint: "This sets expectations about how much effort users put in.", options: ["Users do it themselves with helpful tools", "The product mostly runs automatically", "A mix — set it up once, then it's automatic", "A human advisor helps alongside the product"] };
-      } else if (isMarketplace) {
-        q1 = { id: "who_provides", question: "Who supplies the thing being bought or booked?", hint: "This decides how you grow supply on the platform.", options: ["Individual people (freelancers, locals)", "Small local businesses", "Verified professionals", "A mix of individuals and businesses"] };
-        q2 = { id: "trust_mechanism", question: "How will buyers know they can trust the sellers or providers?", hint: "Trust is the hardest thing to build in any marketplace.", options: ["Verified reviews from real buyers", "We screen and approve every provider manually", "Buyers and sellers see each other's profiles", "A satisfaction guarantee or refund policy"] };
-      } else if (isLocal) {
-        q1 = { id: "geographic_scope", question: "Will this start in one city/area, or be available everywhere from day one?", hint: "This affects how you launch and grow.", options: ["Start in one specific city, then expand", "Available everywhere from launch", "Online-first, physical locations later", "Only in specific neighborhoods or communities"] };
-        q2 = { id: "discovery", question: "How will people find what they're looking for?", hint: "Discovery is often the hardest UX problem for local apps.", options: ["Search by location on a map", "Browse categories and filter results", "AI recommends based on their situation", "Friends and community recommendations"] };
-      } else {
-        // Minimal generic fallback — at least ask about delivery format and who benefits most
-        q1 = { id: "delivery_format", question: "How will people actually use this — on their phone, computer, or in real life?", hint: "This shapes the whole product experience.", options: ["On their phone (mobile app)", "On a computer (website)", "In person / physical product", "A combination of online and offline"] };
-        q2 = { id: "primary_benefit", question: "What's the single biggest thing people get from this?", hint: "This becomes the heart of your brand message.", options: ["Saves a lot of time", "Saves money or earns money", "Connects them with people they couldn't find otherwise", "Helps them learn or get better at something"] };
+      if (clarifyResult && clarifyResult.questions?.length > 0) {
+        return NextResponse.json({
+          error: false,
+          data: clarifyResult,
+          stage: 1,
+          provider: "gemini"
+        });
       }
-
-      const fallback: Stage1ClarifyResult = {
-        questions: [q1, q2]
-      };
-
-      return NextResponse.json({
-        error: false,
-        data: fallback,
-        stage: 1,
-        provider: "gemini"
-      });
+    } catch (geminiErr: unknown) {
+      console.warn("[Stage 1 Clarify]: Gemini failed, using tailored dynamic fallback:", geminiErr);
     }
+
+    // 3. Dynamic fallback using founder's raw words — zero hardcoded options
+    const fallback = buildDynamicClarifyFallback(rawIdea);
+    return NextResponse.json({
+      error: false,
+      data: fallback,
+      stage: 1,
+      provider: "gemini"
+    });
   }
 
   // ─── STEP 2: FILL — generate 4 discovery quadrants using idea + answers ────

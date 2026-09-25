@@ -177,6 +177,29 @@ export function PositionInterview({
           className="w-full bg-[#131B30] border border-white/12 rounded-xl px-4 py-3 text-xs text-[#F8FAFC] focus:outline-none focus:border-amber-400 transition placeholder:text-slate-400"
           placeholder="e.g. Complicated manuals and slow processes, replaced by an instant, effortless experience..."
         />
+
+        {/* Dynamic suggestion pills derived strictly from founder's raw idea */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[10px] font-mono text-slate-400">Suggestions:</span>
+          {[
+            `Fragmented, outdated workarounds for ${discoverData?.rawIdea ? (discoverData.rawIdea.length > 30 ? discoverData.rawIdea.slice(0, 28) + "..." : discoverData.rawIdea) : "this problem"}`,
+            "Slow manual coordination and endless back-and-forth",
+            "Overpriced corporate giants that ignore individual user needs"
+          ].map((alt, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setEnemy(alt)}
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-mono ${
+                enemy === alt
+                  ? "bg-amber-400/20 border-amber-400 text-amber-300 font-semibold"
+                  : "bg-white/[0.03] border-white/10 text-slate-400 hover:text-slate-200 hover:border-white/20"
+              }`}
+            >
+              + {alt}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Action Button — Primary Accent */}

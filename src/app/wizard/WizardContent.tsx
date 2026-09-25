@@ -580,28 +580,6 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
 
           {/* Quick Header Actions */}
           <div className="flex items-center gap-2.5">
-            {/* Supabase Live Status Indicator */}
-            {supabaseStatus === "connected" && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-semibold shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Supabase Synced</span>
-              </div>
-            )}
-            {supabaseStatus === "table_missing" && (
-              <button
-                onClick={() => setShowSupabaseModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/35 text-amber-300 hover:bg-amber-500/25 text-[11px] font-mono font-semibold transition cursor-pointer shadow-sm animate-pulse"
-                title="Table 'projects' needs creation in Supabase"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                <span>Supabase: Setup Table</span>
-              </button>
-            )}
-            {supabaseStatus === "checking" && (
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-[11px] font-mono">
-                <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
-              </div>
-            )}
 
             <button
               onClick={handleExportBrandKit}
