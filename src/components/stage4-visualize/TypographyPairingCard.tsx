@@ -10,7 +10,7 @@ interface TypographyPairingCardProps {
   tagline?: string;
 }
 
-export function TypographyPairingCard({ typography, brandName = "BrandOS", tagline = "Your brand, built with intelligence." }: TypographyPairingCardProps) {
+export function TypographyPairingCard({ typography, brandName = "kNOWyourStartUP", tagline = "Your brand, built with intelligence." }: TypographyPairingCardProps) {
   const googleFontsUrl = `https://fonts.google.com/share?selection.family=${encodeURIComponent(typography.headingFont)}|${encodeURIComponent(typography.bodyFont)}`;
 
   return (
@@ -59,7 +59,7 @@ export function TypographyPairingCard({ typography, brandName = "BrandOS", tagli
             className="text-sm text-slate-300 leading-relaxed max-w-md"
             style={{ fontFamily: `"${typography.bodyFont}", ${typography.bodyFallback}` }}
           >
-            {tagline} University students routinely get paired with unresponsive teammates on high-stakes projects — Campfire fixes that with verified commitment histories and reciprocal peer vouching.
+            {tagline ? `${tagline} — ` : ""}Your brand identity is brought to life through typography that commands attention, feels authentic, and leaves a memorable impression.
           </p>
         </div>
       </div>

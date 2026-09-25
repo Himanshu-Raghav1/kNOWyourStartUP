@@ -103,7 +103,7 @@ export function CohesionScorecard({ data, onNextStage, onApplyRemedy }: Cohesion
             {onNextStage && (
               <button
                 onClick={onNextStage}
-                className="mt-4 flex items-center gap-2 text-xs px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold transition shadow-lg shadow-rose-500/25"
+                className="mt-4 flex items-center gap-2 text-xs px-5 py-2.5 rounded-xl bg-[#FF542E] hover:bg-[#FF6B47] text-white font-bold transition shadow-lg shadow-[#FF542E]/25"
               >
                 Proceed to Deliver Stage <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -161,7 +161,7 @@ export function CohesionScorecard({ data, onNextStage, onApplyRemedy }: Cohesion
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">
-              Gemini Proposed Alternatives &amp; Remedies ({data.proposedAlternatives.length})
+              Suggested Improvements &amp; Fixes ({data.proposedAlternatives.length})
             </h4>
             <span className="text-[10px] font-mono text-emerald-400">1-Click Live Replacer</span>
           </div>

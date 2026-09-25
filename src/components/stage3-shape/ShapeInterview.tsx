@@ -27,7 +27,7 @@ interface ShapeInterviewProps {
 const NAMING_VIBES = [
   {
     title: "Evocative & Poetic",
-    example: "e.g. Campfire, Monzo, Slack, Robinhood",
+    example: "e.g. Airbnb, Monzo, Slack, Robinhood",
     desc: "Emotional metaphor that signals warmth, community, or transformation."
   },
   {
@@ -176,10 +176,10 @@ export function ShapeInterview({
         </div>
 
         {/* Brand Voice Stance */}
-        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3">
+        <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3 bg-[#0E1424]/85">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-white flex items-center gap-2">
-              <Mic className="w-4 h-4 text-[#E8FF54]" />
+              <Mic className="w-4 h-4 text-[#818CF8]" />
               What is your primary brand voice archetype?
             </label>
             <span className="text-[10px] font-mono text-slate-400">Select Archetype</span>
@@ -193,8 +193,8 @@ export function ShapeInterview({
                 onClick={() => setSelectedVoice(i)}
                 className={`text-left p-3 rounded-xl border transition ${
                   selectedVoice === i
-                    ? "bg-[#E8FF54]/15 border-[#E8FF54]/50 text-white"
-                    : "bg-white/5 border-white/5 text-slate-400 hover:text-slate-200"
+                    ? "bg-[#6366F1]/15 border-[#6366F1]/50 text-white shadow-sm"
+                    : "bg-[#131B30]/60 border-white/5 text-slate-300 hover:text-white hover:bg-[#131B30]"
                 }`}
               >
                 <p className="text-xs font-bold text-white">{v.title}</p>
@@ -206,23 +206,23 @@ export function ShapeInterview({
       </div>
 
       {/* Action Generator Bar */}
-      <div className="flex items-center justify-between gap-4 glass-panel p-4 rounded-2xl border border-white/10">
+      <div className="flex items-center justify-between gap-4 glass-panel p-4 rounded-2xl border border-white/10 bg-[#0E1424]/85">
         <div>
           <h4 className="text-xs font-bold text-white">Ready to Shape Identity?</h4>
           <p className="text-[11px] text-slate-400">
-            Groq Llama 3.3 will synthesize 4 naming territories, domain suggestions, and the Do/Don&apos;t voice matrix.
+            Our AI will synthesize 4 naming territories, domain suggestions, and the Do/Don&apos;t voice matrix.
           </p>
         </div>
 
         <button
           onClick={onExecute}
           disabled={isLoading || !positionData}
-          className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-extrabold text-xs transition flex items-center gap-2 shadow-lg shadow-purple-600/25 shrink-0"
+          className="px-6 py-3 rounded-xl bg-[#FF542E] hover:bg-[#FF6B47] disabled:opacity-40 text-white font-bold text-xs transition flex items-center gap-2 shadow-xl shadow-[#FF542E]/25 shrink-0"
         >
           {isLoading ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              Generating Names & Voice via Groq...
+              Generating Names &amp; Voice...
             </>
           ) : (
             <>

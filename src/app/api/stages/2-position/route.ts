@@ -43,6 +43,8 @@ import { DiscoverData, PositionData, ApiResponse } from "@/types";
 
 interface Stage2RequestBody {
   discoverData: DiscoverData;
+  archetype?: string;
+  betterAlternative?: string;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<PositionData>>> {
@@ -61,7 +63,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<P
     }
 
     const systemPrompt = `You are a positioning strategist specializing in category creation and distinct market differentiation.
-Based ONLY on the structured discovery data provided, formulate the market positioning.
+Based on the structured discovery data and the founder's strategic posture provided, formulate the market positioning.
 Output strictly valid JSON matching this TypeScript schema:
 
 {
@@ -81,6 +83,8 @@ Do not include markdown codeblocks or conversational text. Return valid JSON onl
 
     const userPrompt = `Synthesize positioning from this structured discovery context:
 ${JSON.stringify(body.discoverData, null, 2)}
+${body.archetype ? `\nStrategic Archetype Selected: "${body.archetype}"` : ""}
+${body.betterAlternative ? `\nOld / Frustrating Experience Being Made Obsolete: "${body.betterAlternative}"` : ""}
 
 Define the category, the sharpest differentiator, and the defensible positioning statement.`;
 

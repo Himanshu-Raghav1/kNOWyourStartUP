@@ -104,10 +104,9 @@ export function DiscoverInterview({
         const interpretData = json.data as Stage1InterpretResult;
         const interps = interpretData.interpretations || [];
         setInterpretations(interps);
-        // Pre-select the first interpretation
+        // Pre-select the first interpretation and pre-fill its quadrant fields
         if (interps.length > 0) {
-          setSelectedInterpId(interps[0].id);
-          setConfirmedIdea(interps[0].summary);
+          handleSelectInterp(interps[0]);
         }
         setPhase("interpret");
       } else {
@@ -126,15 +125,28 @@ export function DiscoverInterview({
     setSelectedInterpId(interp.id);
     setConfirmedIdea(interp.summary);
     setShowCustomBox(false);
+    // Instantly pre-fill all quadrant fields from the card — no second API call needed
+    setDomainLabel(interp.domainLabel || "Your Product");
+    setCoreVision(interp.coreVision || "");
+    setCoreProblem(interp.coreProblem || "");
+    setPersonaOptions(interp.personaOptions || []);
+    setSelectedPersonas((interp.personaOptions || []).slice(0, 2));
+    setAmbiguities([]);
+    setAmbiguityAnswers({});
   };
 
   // ── Step 2: Confirm interpretation → call clarify API ────────────────────────
-  const handleInterpNext = async (e: React.FormEvent) => {
+  const handleInterpNext = (e: React.FormEvent) => {
     e.preventDefault();
     if (!confirmedIdea.trim()) return;
-    setIsProbing(true);
-    await loadClarifyQuestions();
-    setIsProbing(false);
+    // If user picked a card (pre-filled quadrant data), jump directly to quadrants
+    if (selectedInterpId && coreVision.trim()) {
+      setPhase("quadrants");
+    } else {
+      // User wrote their own idea in the custom box — need AI to fill quadrants
+      setIsProbing(true);
+      loadQuadrants(undefined).then(() => setIsProbing(false));
+    }
   };
 
   const loadClarifyQuestions = async () => {
@@ -272,7 +284,7 @@ export function DiscoverInterview({
             <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF542E]/15 text-[#FF542E] border border-[#FF542E]/30 font-bold tracking-wider">
               Step 1 of 6 · Discover Your Idea
             </span>
-            <span className="text-xs text-slate-500 font-mono">Powered by Google Gemini</span>
+
           </div>
           <h2 className="font-heading font-black text-2xl sm:text-3xl text-white mt-1.5 tracking-tight">
             {phase === "initial" && "Tell us your idea"}
@@ -306,13 +318,13 @@ export function DiscoverInterview({
       {phase === "initial" && (
         <form
           onSubmit={handleDiscoverClick}
-          className="glass-panel p-8 sm:p-12 rounded-3xl border border-white/10 space-y-6 max-w-3xl mx-auto shadow-2xl relative overflow-hidden bg-gradient-to-b from-[#0d1017] to-[#07090e]"
+          className="glass-panel p-8 sm:p-12 rounded-3xl border border-white/10 space-y-6 max-w-3xl mx-auto shadow-2xl relative overflow-hidden bg-[#0E1424]/90"
         >
           <div className="space-y-2 text-center sm:text-left">
             <label className="font-heading font-black text-xl text-white block tracking-tight">
               What's your idea?
             </label>
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               Describe what you want to build in your own words. Don't worry about making it sound perfect — just say what's on your mind.
             </p>
           </div>
@@ -322,14 +334,14 @@ export function DiscoverInterview({
             onChange={(e) => setRawIdea(e.target.value)}
             rows={5}
             autoFocus
-            className="w-full bg-[#040508] border border-white/10 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-600 focus:ring-1 focus:ring-[#FF542E]/50"
+            className="w-full bg-[#131B30] border border-white/12 rounded-2xl p-4 text-sm text-[#F8FAFC] focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-400 focus:ring-1 focus:ring-[#FF542E]/50 shadow-inner"
             placeholder="e.g. An app that helps dog owners find trusted pet sitters nearby..."
           />
 
           <button
             type="submit"
             disabled={!rawIdea.trim() || isProbing}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25 cursor-pointer"
+            className="w-full py-4 rounded-2xl bg-[#FF542E] hover:bg-[#FF6B47] disabled:opacity-40 text-white font-bold text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25 cursor-pointer"
           >
             {isProbing ? (
               <>
@@ -365,65 +377,110 @@ export function DiscoverInterview({
             </button>
           </div>
 
-          {/* Interpretation cards */}
+          {/* Interpretation cards — each is a fully detailed idea option */}
           <div className="space-y-3">
             {interpretations.map((interp, idx) => {
               const isSelected = selectedInterpId === interp.id;
               const letters = ["A", "B", "C"];
               return (
-                <button
+                <div
                   key={interp.id}
-                  type="button"
-                  onClick={() => handleSelectInterp(interp)}
-                  className={`w-full text-left p-5 rounded-2xl border transition-all duration-200 space-y-3 ${
+                  className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
                     isSelected
                       ? "bg-[#FF542E]/10 border-[#FF542E] shadow-md shadow-[#FF542E]/10"
                       : "bg-white/[0.025] border-white/10 hover:bg-white/[0.05] hover:border-white/20"
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    {/* Letter badge + radio */}
-                    <div className="flex items-center gap-2.5 shrink-0 mt-0.5">
-                      <div
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${
-                          isSelected
-                            ? "bg-[#FF542E] border-[#FF542E]"
-                            : "border-white/25 bg-black/40"
-                        }`}
-                      >
-                        {isSelected ? (
-                          <Check className="w-3 h-3 stroke-[3] text-white" />
-                        ) : (
-                          <span className="text-[9px] font-bold text-slate-400">{letters[idx]}</span>
-                        )}
+                  {/* Clickable header row */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectInterp(interp)}
+                    className="w-full text-left p-5 space-y-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Letter badge */}
+                      <div className="flex items-center gap-2.5 shrink-0 mt-0.5">
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${
+                            isSelected
+                              ? "bg-[#FF542E] border-[#FF542E]"
+                              : "border-white/25 bg-black/40"
+                          }`}
+                        >
+                          {isSelected ? (
+                            <Check className="w-3 h-3 stroke-[3] text-white" />
+                          ) : (
+                            <span className="text-[9px] font-bold text-slate-400">{letters[idx]}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold leading-tight ${isSelected ? "text-white" : "text-slate-200"}`}>
+                          {interp.title}
+                        </p>
+                        <p className={`text-xs mt-1.5 leading-relaxed ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
+                          {interp.summary}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold leading-tight ${isSelected ? "text-white" : "text-slate-200"}`}>
-                        {interp.title}
-                      </p>
-                      <p className={`text-xs mt-1.5 leading-relaxed ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
-                        {interp.summary}
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Who / What row */}
-                  <div className="flex flex-col sm:flex-row gap-2 pl-8">
-                    <div className={`flex items-start gap-1.5 flex-1 text-[11px] rounded-xl px-3 py-2 ${isSelected ? "bg-white/[0.08]" : "bg-black/30"}`}>
-                      <Users className="w-3.5 h-3.5 shrink-0 mt-0.5 text-sky-400" />
-                      <span className={`leading-snug ${isSelected ? "text-sky-200" : "text-slate-400"}`}>
-                        <span className="font-semibold text-slate-300">For: </span>{interp.whoItsFor}
-                      </span>
+                    {/* Who / What row */}
+                    <div className="flex flex-col sm:flex-row gap-2 pl-8">
+                      <div className={`flex items-start gap-1.5 flex-1 text-[11px] rounded-xl px-3 py-2 ${isSelected ? "bg-white/[0.08]" : "bg-black/30"}`}>
+                        <Users className="w-3.5 h-3.5 shrink-0 mt-0.5 text-sky-400" />
+                        <span className={`leading-snug ${isSelected ? "text-sky-200" : "text-slate-400"}`}>
+                          <span className="font-semibold text-slate-300">For: </span>{interp.whoItsFor}
+                        </span>
+                      </div>
+                      <div className={`flex items-start gap-1.5 flex-1 text-[11px] rounded-xl px-3 py-2 ${isSelected ? "bg-white/[0.08]" : "bg-black/30"}`}>
+                        <Wrench className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                        <span className={`leading-snug ${isSelected ? "text-amber-200" : "text-slate-400"}`}>
+                          <span className="font-semibold text-slate-300">Does: </span>{interp.whatItDoes}
+                        </span>
+                      </div>
                     </div>
-                    <div className={`flex items-start gap-1.5 flex-1 text-[11px] rounded-xl px-3 py-2 ${isSelected ? "bg-white/[0.08]" : "bg-black/30"}`}>
-                      <Wrench className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
-                      <span className={`leading-snug ${isSelected ? "text-amber-200" : "text-slate-400"}`}>
-                        <span className="font-semibold text-slate-300">Does: </span>{interp.whatItDoes}
-                      </span>
+                  </button>
+
+                  {/* Expanded preview when selected — shows vision + problem + personas */}
+                  {isSelected && (
+                    <div className="px-5 pb-5 pt-0 space-y-3 border-t border-[#FF542E]/20 mt-1 animate-in fade-in duration-200">
+                      <p className="text-[11px] font-mono text-[#FF542E] uppercase tracking-wider pt-3">
+                        ✔ Here’s what we’ll use for your brand overview — you can edit all of this in the next step
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Vision preview */}
+                        <div className="bg-white/[0.04] rounded-xl p-3 border border-white/5 space-y-1">
+                          <p className="text-[10px] font-mono text-[#FF542E] uppercase tracking-wider flex items-center gap-1.5">
+                            <Lightbulb className="w-3 h-3" /> The Big Dream
+                          </p>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">{interp.coreVision}</p>
+                        </div>
+                        {/* Problem preview */}
+                        <div className="bg-white/[0.04] rounded-xl p-3 border border-white/5 space-y-1">
+                          <p className="text-[10px] font-mono text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <AlertTriangle className="w-3 h-3" /> The Problem You’re Solving
+                          </p>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">{interp.coreProblem}</p>
+                        </div>
+                      </div>
+                      {/* Personas preview */}
+                      {interp.personaOptions && interp.personaOptions.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-mono text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <Users className="w-3 h-3" /> Who It’s For
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {interp.personaOptions.map((p, pi) => (
+                              <span key={pi} className="text-[11px] px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-200">
+                                {p}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -454,18 +511,17 @@ export function DiscoverInterview({
                 onChange={(e) => setConfirmedIdea(e.target.value)}
                 rows={3}
                 placeholder="e.g. It's more like a marketplace where pet owners post what they need and sitters bid on it..."
-                className="w-full bg-[#040508] border border-[#FF542E]/40 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-600"
+                className="w-full bg-[#131B30] border border-[#FF542E]/40 rounded-xl p-3.5 text-sm text-[#F8FAFC] focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-400"
               />
               <button
                 type="button"
                 onClick={() => {
                   setShowCustomBox(false);
                   if (interpretations.length > 0) {
-                    setSelectedInterpId(interpretations[0].id);
-                    setConfirmedIdea(interpretations[0].summary);
+                    handleSelectInterp(interpretations[0]);
                   }
                 }}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition"
+                className="text-[11px] text-slate-400 hover:text-white transition"
               >
                 ← Back to options
               </button>
@@ -475,19 +531,15 @@ export function DiscoverInterview({
           {/* "Add your own words" expander when a card is selected */}
           {selectedInterpId && !showCustomBox && (
             <div className="space-y-2 pt-1">
-              <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
-                <PenLine className="w-3 h-3" /> Want to add or change something in this description?
+              <p className="text-[11px] text-slate-300 font-mono flex items-center gap-1.5">
+                <PenLine className="w-3 h-3 text-[#FF542E]" /> Want to add or change something in this description?
               </p>
               <textarea
-                value={confirmedIdea !== interpretations.find(i => i.id === selectedInterpId)?.summary ? confirmedIdea : ""}
-                onChange={(e) => {
-                  const card = interpretations.find(i => i.id === selectedInterpId);
-                  // If user clears it, restore the card's summary
-                  setConfirmedIdea(e.target.value || card?.summary || "");
-                }}
+                value={confirmedIdea}
+                onChange={(e) => setConfirmedIdea(e.target.value)}
                 rows={2}
                 placeholder="Add details, fix anything wrong, or rewrite it completely..."
-                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-600"
+                className="w-full bg-[#131B30] border border-white/12 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-400"
               />
             </div>
           )}
@@ -495,17 +547,22 @@ export function DiscoverInterview({
           <button
             type="submit"
             disabled={isProbing || (!selectedInterpId && !confirmedIdea.trim())}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25"
+            className="w-full py-4 rounded-2xl bg-[#FF542E] hover:bg-[#FF6B47] disabled:opacity-40 text-white font-bold text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25"
           >
             {isProbing ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Got it, digging deeper...</span>
+                <span>Building your overview...</span>
+              </>
+            ) : selectedInterpId ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Yes, this is my idea — fill my overview</span>
               </>
             ) : (
               <>
                 <ChevronRight className="w-4 h-4" />
-                <span>Yes, this is my idea — next</span>
+                <span>Use this — continue</span>
               </>
             )}
           </button>
@@ -600,14 +657,14 @@ export function DiscoverInterview({
                         setClarifyCustom((prev) => ({ ...prev, [q.id]: e.target.value }))
                       }
                       placeholder="e.g. specifically for dog owners, not cats..."
-                      className="w-full bg-[#040508] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF542E] transition placeholder:text-slate-600"
+                      className="w-full bg-[#131B30] border border-white/12 rounded-xl px-3 py-2 text-xs text-[#F8FAFC] focus:outline-none focus:border-[#FF542E] transition placeholder:text-slate-400"
                     />
                     <button
                       type="button"
                       onClick={() =>
                         setClarifyShowCustom((prev) => ({ ...prev, [q.id]: false }))
                       }
-                      className="text-[10px] text-slate-600 hover:text-slate-400 transition"
+                      className="text-[10px] text-slate-400 hover:text-white transition"
                     >
                       Done
                     </button>
@@ -620,7 +677,7 @@ export function DiscoverInterview({
           <button
             type="submit"
             disabled={isProbing}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25"
+            className="w-full py-4 rounded-2xl bg-[#FF542E] hover:bg-[#FF6B47] disabled:opacity-40 text-white font-bold text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25"
           >
             {isProbing ? (
               <>
@@ -660,7 +717,7 @@ export function DiscoverInterview({
           {/* 4 Quadrants */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Q1: Vision */}
-            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0a0d14]/70">
+            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0E1424]/85">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-[#FF542E]/15 text-[#FF542E] flex items-center justify-center">
                   <Lightbulb className="w-4 h-4" />
@@ -676,13 +733,13 @@ export function DiscoverInterview({
                 value={coreVision}
                 onChange={(e) => setCoreVision(e.target.value)}
                 rows={4}
-                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FF542E] transition leading-relaxed font-sans"
+                className="w-full bg-[#131B30] border border-white/12 rounded-xl p-3 text-xs text-slate-100 focus:outline-none focus:border-[#FF542E] transition leading-relaxed font-sans placeholder:text-slate-400"
                 placeholder="What does success look like? How does this change people's lives?"
               />
             </div>
 
             {/* Q2: Problem */}
-            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0a0d14]/70">
+            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0E1424]/85">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
                   <AlertTriangle className="w-4 h-4" />
@@ -698,13 +755,13 @@ export function DiscoverInterview({
                 value={coreProblem}
                 onChange={(e) => setCoreProblem(e.target.value)}
                 rows={4}
-                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-400 transition leading-relaxed font-sans"
+                className="w-full bg-[#131B30] border border-white/12 rounded-xl p-3 text-xs text-slate-100 focus:outline-none focus:border-amber-400 transition leading-relaxed font-sans placeholder:text-slate-400"
                 placeholder="What's the pain your users feel? What do they hate about the current options?"
               />
             </div>
 
             {/* Q3: Personas */}
-            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0a0d14]/70">
+            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0E1424]/85">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center">
                   <Target className="w-4 h-4" />
@@ -760,7 +817,7 @@ export function DiscoverInterview({
                       value={customPersonaInput}
                       onChange={(e) => setCustomPersonaInput(e.target.value)}
                       placeholder="e.g. Stay-at-home parents..."
-                      className="flex-1 bg-[#040508] border border-sky-400/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                      className="flex-1 bg-[#131B30] border border-sky-400/40 rounded-xl px-3 py-2 text-xs text-[#F8FAFC] focus:outline-none placeholder:text-slate-400"
                     />
                     <button
                       type="button"
@@ -782,7 +839,7 @@ export function DiscoverInterview({
             </div>
 
             {/* Q4: Remaining questions */}
-            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-4 bg-[#0a0d14]/70">
+            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-4 bg-[#0E1424]/85">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
                   <HelpCircle className="w-4 h-4" />
@@ -848,14 +905,14 @@ export function DiscoverInterview({
                               setAmbiguityCustom((prev) => ({ ...prev, [amb.id]: e.target.value }))
                             }
                             placeholder="Add more context here..."
-                            className="w-full bg-[#040508] border border-white/10 rounded-lg px-3 py-1.5 text-[11px] text-white focus:outline-none focus:border-purple-400 transition placeholder:text-slate-600"
+                            className="w-full bg-[#131B30] border border-white/12 rounded-lg px-3 py-1.5 text-[11px] text-[#F8FAFC] focus:outline-none focus:border-[#6366F1] transition placeholder:text-slate-400"
                           />
                           <button
                             type="button"
                             onClick={() =>
                               setAmbiguityShowCustom((prev) => ({ ...prev, [amb.id]: false }))
                             }
-                            className="text-[10px] text-slate-600 hover:text-slate-400 transition"
+                            className="text-[10px] text-slate-400 hover:text-white transition"
                           >
                             Done
                           </button>
@@ -894,7 +951,7 @@ export function DiscoverInterview({
             <button
               type="submit"
               disabled={isLoading || !coreVision.trim() || !coreProblem.trim() || selectedPersonas.length === 0}
-              className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-xs transition flex items-center gap-2.5 shadow-xl shadow-[#FF542E]/25 shrink-0 cursor-pointer"
+              className="px-8 py-3.5 rounded-xl bg-[#FF542E] hover:bg-[#FF6B47] disabled:opacity-40 text-white font-bold text-xs transition flex items-center gap-2.5 shadow-xl shadow-[#FF542E]/25 shrink-0 cursor-pointer"
             >
               {isLoading ? (
                 <>
