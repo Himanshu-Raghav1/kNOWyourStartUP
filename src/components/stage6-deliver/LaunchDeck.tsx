@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { DeliverData } from "@/types";
-import { Rocket, Copy, Check, Monitor, ExternalLink, Twitter, Linkedin, ShoppingBag, Megaphone } from "lucide-react";
+import { Rocket, Copy, Check, Monitor, ExternalLink, Twitter, Linkedin, ShoppingBag, Megaphone, Download } from "lucide-react";
 
 const PLATFORM_META: Record<string, { label: string; icon: React.ReactNode; color: string; bg: string; border: string }> = {
   twitter:      { label: "X / Twitter",    icon: <Twitter className="w-4 h-4" />,      color: "text-sky-300",    bg: "bg-sky-500/10",    border: "border-sky-500/25" },
@@ -19,10 +19,23 @@ interface LaunchDeckProps {
 export function LaunchDeck({ data, brandName = "Your Brand" }: LaunchDeckProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  const cleanDomain = `${brandName.toLowerCase().replace(/[^a-z0-9]/g, '') || "brand"}.app`;
+
   const copy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 1800);
+  };
+
+  const handleDownloadJson = () => {
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${brandName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_launch_kit.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const CopyBtn = ({ text, id }: { text: string; id: string }) => (
@@ -36,6 +49,26 @@ export function LaunchDeck({ data, brandName = "Your Brand" }: LaunchDeckProps) 
 
   return (
     <div className="space-y-8">
+      {/* Top Export Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 glass-panel p-4 rounded-2xl border border-white/10 bg-white/[0.02]">
+        <div>
+          <h3 className="text-xs font-bold text-white flex items-center gap-2">
+            <Rocket className="w-4 h-4 text-amber-400" />
+            Launch Deliverables System
+          </h3>
+          <p className="text-[11px] text-slate-400">Everything you need to launch today: pitch, hero copy, social posts &amp; guardrails.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadJson}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold transition"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export Launch Kit (JSON)
+          </button>
+        </div>
+      </div>
+
       {/* Hero Landing Page Mockup */}
       <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden">
         {/* Mock browser chrome */}
@@ -46,19 +79,19 @@ export function LaunchDeck({ data, brandName = "Your Brand" }: LaunchDeckProps) 
             <div className="w-3 h-3 rounded-full bg-emerald-400/60" />
           </div>
           <div className="flex-1 mx-3 bg-white/5 rounded-md px-3 py-1 text-[10px] font-mono text-slate-500 flex items-center gap-1.5">
-            <Monitor className="w-3 h-3" /> joincampfire.app
+            <Monitor className="w-3 h-3" /> {cleanDomain}
           </div>
           <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
         </div>
 
         {/* Landing page hero */}
         <div className="relative px-8 py-14 text-center overflow-hidden"
-          style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(255,84,46,0.15) 0%, #090a0f 60%)" }}>
+          style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(255,84,46,0.18) 0%, #090D16 70%)" }}>
           <div className="absolute inset-0 pointer-events-none"
-            style={{ backgroundImage: "radial-gradient(circle at 50% 100%, rgba(232,255,84,0.04) 0%, transparent 60%)" }} />
+            style={{ backgroundImage: "radial-gradient(circle at 50% 100%, rgba(99,102,241,0.06) 0%, transparent 60%)" }} />
 
           {/* Label */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] text-slate-400 font-mono mb-5">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#131B30] border border-white/10 text-[11px] text-slate-300 font-mono mb-5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             {brandName} · Now Live
           </div>
@@ -71,11 +104,11 @@ export function LaunchDeck({ data, brandName = "Your Brand" }: LaunchDeckProps) 
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <button className="px-6 py-3 rounded-xl bg-[#FF542E] text-white font-bold text-sm hover:bg-[#ff6947] transition shadow-lg shadow-[#FF542E]/30">
+            <button className="px-6 py-3 rounded-xl bg-[#FF542E] text-white font-bold text-sm hover:bg-[#FF6B47] transition shadow-lg shadow-[#FF542E]/30">
               {data.landingPageHero.primaryCtaText} →
             </button>
             {data.landingPageHero.secondaryCtaText && (
-              <button className="px-6 py-3 rounded-xl bg-white/5 border border-white/15 text-slate-200 font-medium text-sm hover:bg-white/10 transition">
+              <button className="px-6 py-3 rounded-xl bg-[#131B30] border border-white/15 text-slate-200 font-medium text-sm hover:bg-[#1A2440] transition">
                 {data.landingPageHero.secondaryCtaText}
               </button>
             )}
@@ -85,9 +118,9 @@ export function LaunchDeck({ data, brandName = "Your Brand" }: LaunchDeckProps) 
 
       {/* Pitch Texts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="glass-panel p-5 rounded-2xl border border-[#E8FF54]/20 space-y-3">
+        <div className="glass-panel p-5 rounded-2xl border border-[#FF542E]/30 bg-[#FF542E]/5 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-mono text-[#E8FF54] uppercase tracking-wider flex items-center gap-1.5">
+            <p className="text-[10px] font-mono text-[#FF542E] uppercase tracking-wider flex items-center gap-1.5 font-bold">
               <Rocket className="w-3.5 h-3.5" /> One-Line Pitch
             </p>
             <CopyBtn text={data.oneLinePitch} id="one-liner" />

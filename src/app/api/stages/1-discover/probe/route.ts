@@ -61,29 +61,56 @@ export async function POST(
     } catch (err: unknown) {
       console.warn("[Stage 1 Interpret]: Gemini failed, using fallback interpretations:", err);
 
-      // Friendly fallback interpretations
+      // Friendly fallback interpretations — each is fully self-contained
       const fallback: Stage1InterpretResult = {
         interpretations: [
           {
             id: "interp_a",
-            title: "A simple tool for everyday people",
-            summary: "A straightforward product that helps regular people solve a common problem in their daily life without needing any special knowledge.",
+            title: "A simple tool people can use themselves",
+            summary: "A straightforward product that helps regular people solve a common problem on their own, without needing help from an expert.",
             whoItsFor: "Anyone who faces this frustration regularly",
-            whatItDoes: "Makes the hard thing simple and fast to do on your own"
+            whatItDoes: "Makes the hard thing simple and fast to do on your own",
+            domainLabel: "Self-Service Tool",
+            coreVision: "Imagine a world where people no longer feel stuck or have to rely on someone else just to get this done. This product puts control back in their hands and makes something that felt complicated feel completely obvious.",
+            coreProblem: "Right now, people either have to pay someone to do this for them, spend hours figuring it out on their own, or just give up. None of the existing options are designed for real people — they're too complex, too expensive, or too slow.",
+            personaOptions: [
+              "People who've tried other options and found them too complicated",
+              "Beginners who want to do it themselves for the first time",
+              "Anyone who's been putting this off because it felt too hard",
+              "People who can't afford to hire someone to do it for them"
+            ]
           },
           {
             id: "interp_b",
-            title: "A community-based solution",
-            summary: "A place where people with the same problem can connect, share tips, and help each other out — combined with a useful tool.",
-            whoItsFor: "People who want both a tool and a community",
-            whatItDoes: "Brings together helpful people and a practical tool in one place"
+            title: "A community where people help each other",
+            summary: "A place where people with the same problem can connect, share what works, and get help from others who've been through it — with a useful tool built in.",
+            whoItsFor: "People who want both a tool and a community around them",
+            whatItDoes: "Brings together helpful people and a practical tool in one place",
+            domainLabel: "Community Platform",
+            coreVision: "What if getting help didn't mean searching alone on the internet? This product creates a real community where people actively help each other — and the tool makes those connections actually useful.",
+            coreProblem: "People dealing with this problem feel isolated. They search online, get generic advice, and have no one to ask follow-up questions. Existing forums are full of noise and outdated information. There's no product that combines real community with a practical tool.",
+            personaOptions: [
+              "People who feel isolated dealing with this problem alone",
+              "Those who've tried solo tools but wanted human support too",
+              "People who love to help others and share what they know",
+              "Anyone who learns better from real experiences, not manuals"
+            ]
           },
           {
             id: "interp_c",
-            title: "A professional service made easy",
-            summary: "Takes something people normally hire a professional for and makes it affordable and doable by anyone, right from their phone.",
+            title: "A professional service made affordable",
+            summary: "Takes something people normally hire a professional for and makes it affordable and doable by anyone, right from their phone or computer.",
             whoItsFor: "People who can't afford or don't want to hire an expert",
-            whatItDoes: "Guides you step-by-step through what a professional would normally do for you"
+            whatItDoes: "Guides you step-by-step through what a professional would normally do for you",
+            domainLabel: "DIY Service",
+            coreVision: "Professional-quality results shouldn't require a professional budget. This product democratizes access to expert-level outcomes, so anyone can get the same result that used to be reserved for people who could pay for it.",
+            coreProblem: "Hiring a professional is expensive, slow, and often overkill for what most people actually need. DIY alternatives are either too confusing or produce mediocre results. There's nothing in the middle that's both affordable and actually good.",
+            personaOptions: [
+              "People who know they need this but can't justify the cost of a professional",
+              "Small business owners without budget for specialists",
+              "Young people just starting out who need to figure this out themselves",
+              "Anyone who's been quoted a high price and felt it wasn't worth it"
+            ]
           }
         ]
       };

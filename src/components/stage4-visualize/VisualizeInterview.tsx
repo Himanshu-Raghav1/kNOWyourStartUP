@@ -27,7 +27,7 @@ interface VisualizeInterviewProps {
 const VISUAL_ENERGIES = [
   {
     title: "Electric Neo-Brutalist",
-    palette: "High contrast #FF542E & #E8FF54 with deep obsidian",
+    palette: "High contrast #FF542E & #818CF8 with deep obsidian",
     desc: "Bold borders, unapologetic typography, raw startup energy."
   },
   {
@@ -112,7 +112,7 @@ export function VisualizeInterview({
                 onClick={onAdvance}
                 className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs transition flex items-center gap-2 shadow-lg shadow-emerald-500/25"
               >
-                Advance to Stage 5 (Gemini Challenge) <ArrowRight className="w-4 h-4" />
+                Advance to Step 5 — Brand Audit <ArrowRight className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -131,7 +131,7 @@ export function VisualizeInterview({
                 Chained from Stage 3 Shaping:
               </p>
               <p className="text-xs font-semibold text-white truncate max-w-xl">
-                Brand Name: <span className="text-[#E8FF54] font-bold">&ldquo;{shapeData.selectedName}&rdquo;</span> · Tagline: &ldquo;{shapeData.selectedTagline}&rdquo;
+                Brand Name: <span className="text-[#FF542E] font-bold">&ldquo;{shapeData.selectedName}&rdquo;</span> · Tagline: &ldquo;{shapeData.selectedTagline}&rdquo;
               </p>
             </div>
           </div>
@@ -209,19 +209,19 @@ export function VisualizeInterview({
         <div>
           <h4 className="text-xs font-bold text-white">Generate Visual Design Brief</h4>
           <p className="text-[11px] text-slate-400">
-            Groq Llama 3.3 compiles the 5-color token system, typography pairings, and composition rules.
+            Our AI compiles the 5-color token system, typography pairings, and composition rules.
           </p>
         </div>
 
         <button
           onClick={onExecute}
           disabled={isLoading || !shapeData}
-          className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold text-xs transition flex items-center gap-2 shadow-lg shadow-emerald-600/25 shrink-0"
+          className="px-6 py-3 rounded-xl bg-[#FF542E] hover:bg-[#FF6B47] disabled:opacity-40 text-white font-bold text-xs transition flex items-center gap-2 shadow-xl shadow-[#FF542E]/25 shrink-0"
         >
           {isLoading ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              Generating Visual Brief via Groq...
+              Generating Visual Brief...
             </>
           ) : (
             <>
@@ -244,9 +244,9 @@ export function VisualizeInterview({
           />
 
           {/* Logo & Symbol Concepts Bento */}
-          <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+          <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-4 bg-[#0E1424]/85">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#E8FF54]" />
+              <Sparkles className="w-4 h-4 text-[#F59E0B]" />
               <h3 className="font-heading font-bold text-base text-white">
                 Iconic Logo & Symbol Concepts
               </h3>
@@ -255,9 +255,9 @@ export function VisualizeInterview({
               {data.logoAndSymbolConcepts.map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-2 hover:border-[#E8FF54]/40 transition group"
+                  className="bg-[#131B30]/70 p-4 rounded-xl border border-white/10 space-y-2 hover:border-[#818CF8]/40 transition group"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-[#E8FF54]/10 text-[#E8FF54] font-bold text-xs flex items-center justify-center font-mono">
+                  <div className="w-7 h-7 rounded-lg bg-[#6366F1]/15 text-[#818CF8] font-bold text-xs flex items-center justify-center font-mono">
                     0{idx + 1}
                   </div>
                   <p className="text-xs text-slate-200 leading-relaxed font-medium">

@@ -23,11 +23,16 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-pro";
 // ============================================================================
 
 export interface IdeaInterpretation {
-  id: string; // short slug e.g. "interp_a"
-  title: string; // 4-7 word headline summarising this take on the idea
-  summary: string; // 1-2 sentences describing what the idea is — in casual, simple language
-  whoItsFor: string; // plain description of who this is aimed at, no jargon
-  whatItDoes: string; // one sentence on the core thing this product/service does
+  id: string;           // short slug e.g. "interp_a"
+  title: string;        // 4-7 word headline summarising this take on the idea
+  summary: string;      // 1-2 sentences describing what the idea is — in casual, simple language
+  whoItsFor: string;    // plain description of who this is aimed at, no jargon
+  whatItDoes: string;   // one sentence on the core thing this product/service does
+  // Quadrant pre-fill fields — populated so picking this card instantly fills Stage 1 boxes:
+  coreVision: string;   // the big dream / what success looks like for this interpretation
+  coreProblem: string;  // the real pain this version solves and why current options fail
+  personaOptions: string[]; // 3-5 specific types of real people who would love this version
+  domainLabel: string;  // short label for this product space, e.g. "Pet Care Apps"
 }
 
 export interface Stage1InterpretResult {
@@ -39,17 +44,25 @@ export const STAGE1_INTERPRET_SCHEMA: ResponseSchema = {
   properties: {
     interpretations: {
       type: SchemaType.ARRAY,
-      description: "Exactly 2 or 3 different plain-English interpretations of the raw idea. Each is a distinct, realistic reading — not generic variations.",
+      description: "Exactly 2 or 3 different plain-English interpretations of the raw idea. Each is a meaningfully distinct reading. Each interpretation must be self-contained — it includes the big dream, the core problem, and the target personas FOR THAT VERSION of the idea.",
       items: {
         type: SchemaType.OBJECT,
         properties: {
           id: { type: SchemaType.STRING, description: "Short slug like 'interp_a'" },
-          title: { type: SchemaType.STRING, description: "A 4-7 word headline for this interpretation. Casual and clear." },
-          summary: { type: SchemaType.STRING, description: "1-2 sentences describing this interpretation of the idea in everyday language. No jargon. Example: 'An app where dog owners can post a request and nearby pet sitters apply — like Upwork but for dog care.'" },
-          whoItsFor: { type: SchemaType.STRING, description: "One short phrase describing the main user, e.g. 'Dog owners who travel often'" },
-          whatItDoes: { type: SchemaType.STRING, description: "One sentence on what the product actually does, e.g. 'Connects pet owners with verified local sitters via a simple booking flow'" }
+          title: { type: SchemaType.STRING, description: "4-7 word casual headline for this interpretation, e.g. 'A marketplace where sitters compete'" },
+          summary: { type: SchemaType.STRING, description: "1-2 plain-English sentences describing this version of the idea. No jargon. Casual tone." },
+          whoItsFor: { type: SchemaType.STRING, description: "One short phrase for the main user, e.g. 'Dog owners who travel frequently'" },
+          whatItDoes: { type: SchemaType.STRING, description: "One sentence: what the product physically/digitally does, e.g. 'Lets pet owners post jobs and nearby sitters apply with their rate and availability'" },
+          coreVision: { type: SchemaType.STRING, description: "2-3 sentences about the big dream for THIS version — what does success look like, how does it change people's lives? Plain language, honest and specific." },
+          coreProblem: { type: SchemaType.STRING, description: "2-3 sentences describing the actual pain this version solves. Be concrete — say what sucks about the current options and why people need THIS solution." },
+          personaOptions: {
+            type: SchemaType.ARRAY,
+            description: "3-5 specific, realistic types of real people who would love this version of the product. Each should feel like a real person, not a category. E.g. 'Dog owners who work 9-5 and can't leave early' not 'dog lovers'.",
+            items: { type: SchemaType.STRING }
+          },
+          domainLabel: { type: SchemaType.STRING, description: "Short 2-4 word label for what type of product this is, e.g. 'Pet Care Marketplace', 'Fitness App', 'Learning Platform'" }
         },
-        required: ["id", "title", "summary", "whoItsFor", "whatItDoes"]
+        required: ["id", "title", "summary", "whoItsFor", "whatItDoes", "coreVision", "coreProblem", "personaOptions", "domainLabel"]
       }
     }
   },
@@ -324,31 +337,45 @@ export async function generateGeminiStructuredJson<T>(
 }
 
 /**
- * Stage 1 — Phase 0: Generates 2-3 distinct plain-English interpretations of the raw idea
- * so the user can confirm (or correct) what the AI understood before going deeper.
+ * Stage 1 — Phase 0: Generates 2-3 distinct, FULLY SELF-CONTAINED interpretations of the raw idea.
+ * Each interpretation pre-fills ALL quadrant fields (vision, problem, personas, domainLabel)
+ * so when the user picks one, no second AI call is needed — the boxes fill instantly.
  */
 export async function generateGeminiIdeaInterpretations(
   rawIdea: string
 ): Promise<Stage1InterpretResult> {
-  const systemInstruction = `You help people turn rough ideas into real products.
-  A person has just typed a quick, casual description of something they want to build.
-  Your job is to give them 2 or 3 different, REALISTIC ways their idea could be interpreted.
-  
-  Rules:
-  - Use completely plain language. Zero jargon.
-  - Each interpretation must be meaningfully different (not just rephrased).
-  - Think like a smart friend, not a consultant.
-  - Do NOT use words like: "platform", "ecosystem", "synergy", "monetize", "stakeholder", "leverage", "disrupt", "scalable", "B2B", "SaaS", "go-to-market".
-  - Describe who it's for as a real person: "busy parents", "dog owners who travel", NOT "end-users" or "target segment".
-  - Return JSON matching the schema with exactly 2 or 3 interpretations.`;
+  const systemInstruction = `You help people turn rough startup ideas into real brands.
 
-  const prompt = `Here is someone's rough idea:\n"${rawIdea.trim()}"\n\nGive 2-3 different plain-English readings of this idea. Each should feel like a different direction they could take it.`;
+A person just typed a rough idea. Your job: think of 2 or 3 GENUINELY DIFFERENT ways this idea could work. Each interpretation is a complete picture of one version of the idea.
+
+For EACH interpretation you must fill in:
+1. title — 5-7 casual words describing this version
+2. summary — 1-2 casual sentences describing what this version IS
+3. whoItsFor — one short phrase for the main user (real person, not a category)
+4. whatItDoes — one sentence on what the product actually does
+5. coreVision — 2-3 sentences: the big dream, what success looks like, how it changes lives. Be specific and honest.
+6. coreProblem — 2-3 sentences: the real pain this version solves. Name what sucks about current options today.
+7. personaOptions — 3-5 specific, real-sounding types of people who would love this version
+8. domainLabel — short 2-4 word label for the product type (e.g. "Pet Care Marketplace")
+
+CRITICAL RULES:
+- Plain everyday language only. No jargon. No buzzwords.
+- Never say: "platform", "ecosystem", "synergy", "stakeholder", "monetize", "scalable", "disrupt", "B2B", "SaaS".
+- Real people descriptions only: "dog owners who work long shifts" NOT "target segment".
+- Each interpretation must be meaningfully different from the others — a different angle, a different user, or a different model.
+- Vision and problem must be SPECIFIC to THIS idea — not generic startup copy.
+- Persona options must sound like real people you could describe to a friend.`;
+
+  const prompt = `Here is someone's rough startup idea:
+"${rawIdea.trim()}"
+
+Give 2-3 meaningfully different ways this idea could work. For each version, fill in ALL the fields — especially the big dream, the real problem it solves, and exactly who would love it. Be specific to this idea, not generic.`;
 
   return generateGeminiStructuredJson<Stage1InterpretResult>({
     systemInstruction,
     prompt,
     responseSchema: STAGE1_INTERPRET_SCHEMA,
-    temperature: 0.7 // slightly higher for creative variation
+    temperature: 0.65
   });
 }
 

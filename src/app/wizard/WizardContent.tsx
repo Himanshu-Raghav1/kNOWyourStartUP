@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
   Compass,
@@ -145,7 +146,7 @@ export default function WizardContent() {
 
       setProject(updatedProject);
       await persistProjectState(updatedProject);
-      triggerToast("✓ Stage 01 Discovery Intelligence Synthesized & Chained!");
+      triggerToast("✓ Step 1 done — your idea is mapped out!");
       setActiveStage(2);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
@@ -158,7 +159,7 @@ export default function WizardContent() {
   /**
    * STAGE 2: Execute Positioning LLM Generation
    */
-  const handleExecuteStage2 = async () => {
+  const handleExecuteStage2 = async (params?: { archetype?: string; betterAlternative?: string }) => {
     if (!project.discover_data) {
       setErrorMsg("Stage 1 (Discover) output must be generated first.");
       return;
@@ -171,7 +172,11 @@ export default function WizardContent() {
       const res = await fetch("/api/stages/2-position", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ discoverData: project.discover_data })
+        body: JSON.stringify({
+          discoverData: project.discover_data,
+          archetype: params?.archetype,
+          betterAlternative: params?.betterAlternative
+        })
       });
 
       const json = await res.json();
@@ -187,7 +192,7 @@ export default function WizardContent() {
 
       setProject(updatedProject);
       await persistProjectState(updatedProject);
-      triggerToast("✓ Stage 02 Market Positioning Wedge Synthesized!");
+      triggerToast("✓ Step 2 done — your position in the market is set!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
       setErrorMsg(msg);
@@ -233,7 +238,7 @@ export default function WizardContent() {
 
       setProject(updatedProject);
       await persistProjectState(updatedProject);
-      triggerToast("✓ Stage 03 Naming Territories & Voice Matrix Generated!");
+      triggerToast("✓ Step 3 done — name, tagline, and brand voice are ready!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
       setErrorMsg(msg);
@@ -277,7 +282,7 @@ export default function WizardContent() {
 
       setProject(updatedProject);
       await persistProjectState(updatedProject);
-      triggerToast("✓ Stage 04 Visual Design Brief & Color Swatches Created!");
+      triggerToast("✓ Step 4 done — your color palette and fonts are locked in!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
       setErrorMsg(msg);
@@ -291,7 +296,7 @@ export default function WizardContent() {
    */
   const handleExecuteStage5 = async () => {
     if (!project.discover_data || !project.position_data || !project.shape_data || !project.visualize_data) {
-      setErrorMsg("Stages 1-4 must all be generated before running Gemini validation.");
+      setErrorMsg("Complete steps 1–4 first before running the brand audit.");
       return;
     }
 
@@ -312,7 +317,7 @@ export default function WizardContent() {
 
       const json = await res.json();
       if (json.error || !json.data) {
-        throw new Error(json.message || "Failed to run Gemini Stage 5 critique.");
+        throw new Error(json.message || "Failed to run brand audit.");
       }
 
       const updatedProject: BrandProject = {
@@ -323,7 +328,7 @@ export default function WizardContent() {
 
       setProject(updatedProject);
       await persistProjectState(updatedProject);
-      triggerToast("✓ Stage 05 Gemini Adversarial Stress-Test Complete!");
+      triggerToast("✓ Step 5 done — brand audit complete!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
       setErrorMsg(msg);
@@ -367,7 +372,7 @@ export default function WizardContent() {
 
       setProject(updatedProject);
       await persistProjectState(updatedProject);
-      triggerToast("✓ Stage 06 Launch Kit & Social Campaign Ready!");
+      triggerToast("✓ Step 6 done — your launch kit is ready!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
       setErrorMsg(msg);
@@ -391,7 +396,7 @@ export default function WizardContent() {
       };
       setProject(updated);
       persistProjectState(updated);
-      triggerToast(`✓ Brand name updated to "${proposal}" from Gemini remedy!`);
+      triggerToast(`✓ Brand name updated to "${proposal}"!`);
     } else {
       triggerToast(`✓ Remedy noted: "${proposal}" integrated into brand system!`);
     }
@@ -403,7 +408,7 @@ export default function WizardContent() {
   const handleExportBrandKit = () => {
     const brandName = project.shape_data?.selectedName || project.title || "Brand System";
     const markdown = `# ${brandName} — Complete Brand Intelligence Kit
-Generated by BrandOS (Dual-LLM 6-Stage Sequential Architecture)
+Generated by kNOWyourStartUP
 Timestamp: ${new Date().toISOString()}
 
 ---
@@ -447,7 +452,7 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
 
 ---
 
-## 5. Adversarial Audit (Google Gemini)
+## 5. Brand Audit
 **Cohesion Score**: ${project.challenge_data?.overallCohesionScore || "N/A"} / 100
 **Validation Verdict**: ${project.challenge_data?.passedValidation ? "PASSED" : "REVISIONS RECOMMENDED"}
 **Summary**: ${project.challenge_data?.verdictSummary || "N/A"}
@@ -501,19 +506,26 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
       )}
 
       {/* Global Top Studio Header */}
-      <header className="border-b border-white/5 bg-[#0a0c10]/90 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-white/10 bg-[#090D16]/90 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
           {/* Logo & Brand Title */}
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="flex items-center gap-2 group transition"
+              className="flex items-center gap-2.5 group transition"
             >
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FF542E] to-[#ff7b47] flex items-center justify-center shadow-lg shadow-[#FF542E]/20">
-                <Compass className="w-4 h-4 text-white group-hover:rotate-45 transition duration-300" />
+              <div className="w-8 h-8 rounded-xl bg-[#131B30] border border-white/10 flex items-center justify-center p-1 shadow-md shadow-[#FF542E]/15 group-hover:scale-105 transition duration-200">
+                <Image
+                  src="/logo.png"
+                  alt="kNOWyourStartUP Logo"
+                  width={28}
+                  height={28}
+                  className="w-full h-full object-contain"
+                  priority
+                />
               </div>
-              <span className="font-heading font-black text-lg tracking-tight text-white">
-                Brand<span className="text-[#FF542E]">OS</span>
+              <span className="font-heading font-bold text-sm tracking-tight text-white">
+                k<span className="text-[#FF542E]">NOW</span>your<span className="text-[#FF542E]">START</span>up
               </span>
             </Link>
 
@@ -524,7 +536,7 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
                 {project.shape_data?.selectedName || project.title}
               </span>
               {isMockMode && (
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E8FF54]/10 text-[#E8FF54] border border-[#E8FF54]/25">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#6366F1]/15 text-[#818CF8] border border-[#6366F1]/30 font-medium">
                   Mock Mode
                 </span>
               )}
@@ -535,7 +547,7 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
           <div className="flex items-center gap-2.5">
             <button
               onClick={handleExportBrandKit}
-              className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] text-white font-bold transition shadow-md shadow-[#FF542E]/20"
+              className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-xl bg-[#FF542E] hover:bg-[#FF6B47] text-white font-bold transition shadow-md shadow-[#FF542E]/25"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export Brand Kit</span>
@@ -543,13 +555,12 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
 
             <button
               onClick={() => setViewJsonMode(!viewJsonMode)}
-              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition ${
-                viewJsonMode
-                  ? "bg-[#E8FF54]/20 text-[#E8FF54] border-[#E8FF54]/40 font-bold"
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition ${viewJsonMode
+                  ? "bg-[#6366F1]/20 text-[#818CF8] border-[#6366F1]/40 font-bold"
                   : "bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10"
-              }`}
+                }`}
             >
-              {viewJsonMode ? <FileText className="w-3.5 h-3.5" /> : <Code className="w-3.5 h-3.5" />}
+              {viewJsonMode ? <FileText className="w-3.5 h-3.5 text-[#818CF8]" /> : <Code className="w-3.5 h-3.5 text-slate-400" />}
               <span className="hidden sm:inline">{viewJsonMode ? "Visual View" : "JSON Contract"}</span>
             </button>
           </div>
@@ -568,7 +579,7 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
           onResetMock={() => {
             setProject(MOCK_BRAND_PROJECT);
             setActiveStage(1);
-            triggerToast("✓ Loaded Reference 'Campfire' Brand Project!");
+            triggerToast("✓ Loaded demo brand project!");
           }}
         />
 
@@ -621,7 +632,7 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
                 </button>
               </div>
 
-              <pre className="bg-[#040508] p-5 rounded-xl border border-white/5 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-[600px] leading-relaxed">
+              <pre className="bg-[#131B30] p-5 rounded-xl border border-white/10 text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-[600px] leading-relaxed">
                 {JSON.stringify(getCurrentStageData(), null, 2) || "// No structured data locked for this stage yet."}
               </pre>
             </div>
@@ -647,6 +658,11 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
                   onExecute={handleExecuteStage2}
                   onAdvance={() => setActiveStage(3)}
                   onBack={() => setActiveStage(1)}
+                  onUpdatePositionData={(updated) => {
+                    const newProj = { ...project, position_data: updated };
+                    setProject(newProj);
+                    persistProjectState(newProj);
+                  }}
                 />
               )}
 
@@ -697,17 +713,14 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
-                            Stage 05 · Gemini Adversarial Audit
-                          </span>
-                          <span className="text-xs text-slate-400 font-mono">
-                            Dual-LLM: Google Gemini 2.5 Pro Reasoner
+                            Step 05 · Brand Audit
                           </span>
                         </div>
                         <h2 className="font-heading font-black text-2xl sm:text-3xl text-white mt-1.5">
                           Adversarial Cohesion &amp; Cliché Stress-Test
                         </h2>
                         <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                          Top agency creative directors challenge everything before presentation. Google Gemini audits stages 1 through 4 for startup clichés, audience contradictions, and cognitive dissonance.
+                          Your AI reviews everything you've built so far and spots weak points — clichés, contradictions, audience mismatches — so your brand is tight before you launch.
                         </p>
                       </div>
 
@@ -726,12 +739,12 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
                           {isLoading ? (
                             <>
                               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              Running Gemini Audit...
+                              Running Audit...
                             </>
                           ) : (
                             <>
                               <ShieldCheck className="w-3.5 h-3.5" />
-                              {project.challenge_data ? "Re-Run Gemini Audit" : "Run Gemini Audit"}
+                              {project.challenge_data ? "Re-Run Brand Audit" : "Run Brand Audit"}
                             </>
                           )}
                         </button>
@@ -752,10 +765,10 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
                       </div>
                       <div className="space-y-1 max-w-sm">
                         <h4 className="font-heading font-bold text-base text-white">
-                          Awaiting Gemini Adversarial Stress-Test
+                          Awaiting Adversarial Brand Stress-Test
                         </h4>
                         <p className="text-xs text-slate-400 leading-relaxed">
-                          Click &apos;Run Gemini Audit&apos; above. The deep reasoning model will cross-examine your Discovery, Positioning, Shaping, and Visual contracts.
+                          Click &apos;Run Brand Audit&apos; above. The reasoning engine will cross-examine your Discovery, Positioning, Shaping, and Visual contracts.
                         </p>
                       </div>
                     </div>
@@ -777,7 +790,7 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
                             Stage 06 · Deliver &amp; Launch
                           </span>
                           <span className="text-xs text-slate-400 font-mono">
-                            Groq Llama 3.3 Launch Kit Generator
+                            AI Launch Kit Generator
                           </span>
                         </div>
                         <h2 className="font-heading font-black text-2xl sm:text-3xl text-white mt-1.5">

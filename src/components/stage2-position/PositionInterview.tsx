@@ -10,7 +10,7 @@ import {
   RefreshCw,
   Quote,
   Target,
-  Swords,
+  Zap,
   CheckCircle2,
   Check
 } from "lucide-react";
@@ -19,9 +19,10 @@ interface PositionInterviewProps {
   discoverData: DiscoverData | null;
   data: PositionData | null;
   isLoading: boolean;
-  onExecute: () => void;
+  onExecute: (params?: { archetype?: string; betterAlternative?: string }) => void;
   onAdvance: () => void;
   onBack: () => void;
+  onUpdatePositionData?: (updated: PositionData) => void;
 }
 
 const CATEGORY_ARCHETYPES = [
@@ -53,10 +54,12 @@ export function PositionInterview({
   isLoading,
   onExecute,
   onAdvance,
-  onBack
+  onBack,
+  onUpdatePositionData
 }: PositionInterviewProps) {
   const [selectedArchetype, setSelectedArchetype] = useState<number>(0);
-  const [enemy, setEnemy] = useState<string>("Bloated legacy software full of corporate friction");
+  const [enemy, setEnemy] = useState<string>("");
+  const [isEditing, setIsEditing] = useState<boolean>(false);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-300">
@@ -75,7 +78,7 @@ export function PositionInterview({
             Strategic Market Positioning
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-            Positioning is how you carve space in the customer&apos;s mind. Choose your strategic posture and define your market adversary.
+            Positioning is how you stand out in people&apos;s minds. Choose your strategic approach and what old frustrating experience you are making obsolete.
           </p>
         </div>
 
@@ -157,42 +160,47 @@ export function PositionInterview({
         </div>
       </div>
 
-      {/* Strategic Adversary / Enemy */}
-      <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3 bg-[#0a0d14]/70">
+      {/* What you're making obsolete */}
+      <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3 bg-[#0E1424]/85">
         <div className="flex items-center justify-between">
           <label className="font-heading font-bold text-xs text-white flex items-center gap-2">
-            <Swords className="w-4 h-4 text-rose-400" />
-            02 · Who or what is the enemy your brand actively fights against?
+            <Zap className="w-4 h-4 text-amber-400" />
+            02 · What old or frustrating way are you replacing with a better experience?
           </label>
-          <span className="text-[10px] font-mono text-slate-400">Status Quo Enemy</span>
+          <span className="text-[10px] font-mono text-slate-400">Better Alternative</span>
         </div>
 
         <input
           type="text"
           value={enemy}
           onChange={(e) => setEnemy(e.target.value)}
-          className="w-full bg-[#040508] border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-rose-400 transition"
-          placeholder="e.g. Bloated enterprise feature-creep and sluggish legacy software..."
+          className="w-full bg-[#131B30] border border-white/12 rounded-xl px-4 py-3 text-xs text-[#F8FAFC] focus:outline-none focus:border-amber-400 transition placeholder:text-slate-400"
+          placeholder="e.g. Complicated manuals and slow processes, replaced by an instant, effortless experience..."
         />
       </div>
 
-      {/* Action Button */}
+      {/* Action Button — Primary Accent */}
       <button
         type="button"
-        onClick={onExecute}
+        onClick={() =>
+          onExecute({
+            archetype: CATEGORY_ARCHETYPES[selectedArchetype]?.title,
+            betterAlternative: enemy.trim() || undefined
+          })
+        }
         disabled={isLoading || !discoverData}
-        className="w-full py-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 disabled:opacity-40 text-black font-black text-sm transition flex items-center justify-center gap-2 shadow-xl shadow-sky-500/25"
+        className="w-full py-4 rounded-2xl bg-[#FF542E] hover:bg-[#FF6B47] disabled:opacity-40 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-xl shadow-[#FF542E]/25"
       >
         {isLoading ? (
           <>
-            <RefreshCw className="w-4 h-4 animate-spin text-black" />
-            Synthesizing Positioning Wedge via Groq Llama 3.3...
+            <RefreshCw className="w-4 h-4 animate-spin text-white" />
+            Synthesizing Strategic Positioning Strategy...
           </>
         ) : (
           <>
-            <Sparkles className="w-4 h-4 text-black" />
+            <Sparkles className="w-4 h-4 text-white" />
             {data ? "Re-Synthesize Positioning Strategy" : "Synthesize Positioning Strategy"}
-            <ArrowRight className="w-4 h-4 text-black" />
+            <ArrowRight className="w-4 h-4 text-white" />
           </>
         )}
       </button>
@@ -205,52 +213,97 @@ export function PositionInterview({
               <CheckCircle2 className="w-4 h-4" />
               Stage 02 Output Locked · PositionData
             </div>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10">
-              Pruned JSON Contract
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsEditing(!isEditing)}
+                className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition"
+              >
+                {isEditing ? "✓ Done Editing" : "✎ Edit & Refine Output"}
+              </button>
+            </div>
           </div>
 
           {/* Canonical Statement */}
           <div className="glass-panel p-6 rounded-2xl border border-sky-400/30 bg-sky-500/10 space-y-2">
-            <div className="flex items-center gap-2 text-sky-300">
-              <Quote className="w-4 h-4" />
-              <span className="text-[10px] font-mono uppercase tracking-wider font-bold">
-                Canonical Positioning Statement
-              </span>
+            <div className="flex items-center justify-between text-sky-300">
+              <div className="flex items-center gap-2">
+                <Quote className="w-4 h-4" />
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold">
+                  Canonical Positioning Statement
+                </span>
+              </div>
+              {isEditing && <span className="text-[10px] font-mono text-sky-400">Editable</span>}
             </div>
-            <p className="font-heading text-base md:text-lg font-bold text-white leading-relaxed">
-              &ldquo;{data.positioningStatement}&rdquo;
-            </p>
+            {isEditing ? (
+              <textarea
+                value={data.positioningStatement}
+                onChange={(e) => onUpdatePositionData?.({ ...data, positioningStatement: e.target.value })}
+                rows={3}
+                className="w-full bg-[#050810] border border-sky-400/50 rounded-xl p-3 text-sm text-white font-medium focus:outline-none"
+              />
+            ) : (
+              <p className="font-heading text-base md:text-lg font-bold text-white leading-relaxed">
+                &ldquo;{data.positioningStatement}&rdquo;
+              </p>
+            )}
           </div>
 
           {/* Category & Differentiator Bento */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1.5 bg-[#0a0d14]/70">
+            <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1.5 bg-[#0E1424]/85">
               <span className="text-[10px] font-mono uppercase text-sky-400 font-bold">
                 Defined Market Category
               </span>
-              <p className="text-sm font-bold text-white">
-                {data.marketCategory}
-              </p>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={data.marketCategory}
+                  onChange={(e) => onUpdatePositionData?.({ ...data, marketCategory: e.target.value })}
+                  className="w-full bg-[#131B30] border border-white/12 rounded-lg p-2 text-sm text-[#F8FAFC] font-bold focus:outline-none"
+                />
+              ) : (
+                <p className="text-sm font-bold text-white">
+                  {data.marketCategory}
+                </p>
+              )}
             </div>
 
-            <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1.5 bg-[#0a0d14]/70">
-              <span className="text-[10px] font-mono uppercase text-[#E8FF54] font-bold">
+            <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1.5 bg-[#0E1424]/85">
+              <span className="text-[10px] font-mono uppercase text-[#818CF8] font-bold">
                 Core Differentiator Wedge
               </span>
-              <p className="text-sm font-bold text-white">
-                {data.coreDifferentiator}
-              </p>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={data.coreDifferentiator}
+                  onChange={(e) => onUpdatePositionData?.({ ...data, coreDifferentiator: e.target.value })}
+                  className="w-full bg-[#131B30] border border-white/12 rounded-lg p-2 text-sm text-[#F8FAFC] font-bold focus:outline-none"
+                />
+              ) : (
+                <p className="text-sm font-bold text-white">
+                  {data.coreDifferentiator}
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1.5 bg-[#0a0d14]/70">
+          <div className="glass-panel p-5 rounded-2xl border border-white/10 space-y-1.5 bg-[#0E1424]/85">
             <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold">
               Value Proposition
             </span>
-            <p className="text-xs text-slate-200 leading-relaxed font-medium">
-              {data.valueProposition}
-            </p>
+            {isEditing ? (
+              <textarea
+                value={data.valueProposition}
+                onChange={(e) => onUpdatePositionData?.({ ...data, valueProposition: e.target.value })}
+                rows={2}
+                className="w-full bg-[#131B30] border border-white/12 rounded-lg p-2 text-xs text-[#F8FAFC] focus:outline-none"
+              />
+            ) : (
+              <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                {data.valueProposition}
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end pt-2">

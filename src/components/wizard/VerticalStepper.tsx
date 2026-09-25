@@ -35,7 +35,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
     id: 1,
     name: "Discover",
     subtitle: "Root Friction & Persona Matrix",
-    provider: "Gemini 2.5 Pro",
+    provider: "AI",
     icon: Compass,
     accentColor: "#FF542E",
     badgeBg: "bg-[#FF542E]/10",
@@ -46,7 +46,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
     id: 2,
     name: "Position",
     subtitle: "Category Wedge & Hegemony",
-    provider: "Groq (Llama 3.3)",
+    provider: "AI",
     icon: Layers,
     accentColor: "#38bdf8",
     badgeBg: "bg-sky-500/10",
@@ -57,18 +57,18 @@ export const STAGE_CONFIGS: StageConfig[] = [
     id: 3,
     name: "Shape",
     subtitle: "Linguistic Territories & Voice",
-    provider: "Groq (Llama 3.3)",
+    provider: "AI",
     icon: Sparkles,
-    accentColor: "#c084fc",
-    badgeBg: "bg-purple-500/10",
-    badgeBorder: "border-purple-500/30",
-    badgeText: "text-purple-300"
+    accentColor: "#818CF8",
+    badgeBg: "bg-[#6366F1]/10",
+    badgeBorder: "border-[#6366F1]/30",
+    badgeText: "text-[#818CF8]"
   },
   {
     id: 4,
     name: "Visualize",
     subtitle: "Chromatic Tokens & Typography",
-    provider: "Groq (Llama 3.3)",
+    provider: "AI",
     icon: Palette,
     accentColor: "#34d399",
     badgeBg: "bg-emerald-500/10",
@@ -79,7 +79,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
     id: 5,
     name: "Challenge",
     subtitle: "Adversarial Cohesion Audit",
-    provider: "Gemini 2.5 Pro",
+    provider: "AI",
     icon: ShieldCheck,
     accentColor: "#f43f5e",
     badgeBg: "bg-rose-500/10",
@@ -90,7 +90,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
     id: 6,
     name: "Deliver",
     subtitle: "Launch Manifesto & Asset Deck",
-    provider: "Groq (Llama 3.3)",
+    provider: "AI",
     icon: Zap,
     accentColor: "#fbbf24",
     badgeBg: "bg-amber-500/10",
@@ -135,12 +135,12 @@ export function VerticalStepper({
       <div className="glass-panel p-5 rounded-2xl border border-white/10 relative overflow-hidden">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#E8FF54] animate-ping" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#6366F1] animate-ping" />
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
               Agency Studio
             </span>
           </div>
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#E8FF54]/10 text-[#E8FF54] border border-[#E8FF54]/30 font-semibold">
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#6366F1]/15 text-[#818CF8] border border-[#6366F1]/30 font-semibold">
             {progressPercent}% Complete
           </span>
         </div>
@@ -156,11 +156,11 @@ export function VerticalStepper({
         <div className="mt-4">
           <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-[#FF542E] via-purple-500 to-[#E8FF54] transition-all duration-700 ease-out"
+              className="h-full bg-gradient-to-r from-[#FF542E] via-[#818CF8] to-[#6366F1] transition-all duration-700 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <div className="flex justify-between items-center mt-2 text-[10px] font-mono text-slate-500">
+          <div className="flex justify-between items-center mt-2 text-[10px] font-mono text-slate-400 font-medium">
             <span>{completedCount} of 6 Stages Locked</span>
             <span>Stage 0{activeStage} Active</span>
           </div>
@@ -271,23 +271,23 @@ export function VerticalStepper({
       {/* Chain-Prompting Architecture Visualizer */}
       <div className="glass-panel p-4 rounded-2xl border border-white/10 space-y-3">
         <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-400">
-          <Sparkle className="w-3.5 h-3.5 text-[#E8FF54]" />
+          <Sparkle className="w-3.5 h-3.5 text-[#F59E0B]" />
           <span>Chain-Prompt Context Flow</span>
         </div>
 
-        <div className="bg-[#06070a] p-3 rounded-xl border border-white/5 text-[11px] font-mono text-slate-300 space-y-2">
+        <div className="bg-[#131B30] p-3.5 rounded-xl border border-white/10 text-[11px] font-mono text-slate-300 space-y-2">
           <div className="flex items-center gap-1.5 text-xs">
             <span className="w-2 h-2 rounded-full bg-[#FF542E]" />
             <span className="text-white font-semibold">Stage 0{activeStage} Context:</span>
           </div>
 
-          <p className="text-[10px] text-slate-400 leading-relaxed font-sans">
-            {activeStage === 1 && "Interview answers ➔ Groq Llama 3.3 ➔ Pruned DiscoverData JSON"}
-            {activeStage === 2 && "Pruned DiscoverData + Positioning choices ➔ Groq ➔ Market Wedge"}
-            {activeStage === 3 && "PositionData + Naming vibe ➔ Groq ➔ 4 Territories + Voice Grid"}
-            {activeStage === 4 && "Selected Name + Voice ➔ Groq ➔ 5-Swatch Palette & Typography"}
-            {activeStage === 5 && "Stages 1–4 JSON contracts ➔ Google Gemini 2.5 Pro ➔ Cohesion Audit"}
-            {activeStage === 6 && "Full Brand Dossier + Gemini Remedies ➔ Groq ➔ Launch Deck"}
+          <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
+            {activeStage === 1 && "Your idea ➡ AI understands what you're building ➡ Brand foundation"}
+            {activeStage === 2 && "Your brand foundation ➡ AI finds your market angle ➡ Positioning"}
+            {activeStage === 3 && "Your positioning ➡ AI names and gives your brand a voice ➡ Identity"}
+            {activeStage === 4 && "Your identity ➡ AI locks in colors and fonts ➡ Visual system"}
+            {activeStage === 5 && "Everything above ➡ AI audits for weak spots ➡ Stronger brand"}
+            {activeStage === 6 && "Your complete brand ➡ AI writes your launch materials ➡ Go live"}
           </p>
         </div>
 
@@ -297,7 +297,7 @@ export function VerticalStepper({
             onClick={onToggleJsonMode}
             className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-medium text-slate-300 hover:text-white transition"
           >
-            {viewJsonMode ? <FileText className="w-3 h-3 text-[#E8FF54]" /> : <Code className="w-3 h-3 text-cyan-400" />}
+            {viewJsonMode ? <FileText className="w-3 h-3 text-[#818CF8]" /> : <Code className="w-3 h-3 text-[#818CF8]" />}
             <span>{viewJsonMode ? "Visual View" : "JSON Contract"}</span>
           </button>
 
