@@ -7,10 +7,12 @@ export default function WizardPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#090a0f] flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-10 h-10 border-2 border-[#FF542E] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm text-slate-400 font-mono">Loading Brand Wizard...</p>
+        <div className="min-h-screen bg-[#06070a] flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <div className="w-10 h-10 border-2 border-[#FF542E] border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs text-slate-400 font-mono uppercase tracking-wider">
+              Initializing BrandOS Studio...
+            </p>
           </div>
         </div>
       }

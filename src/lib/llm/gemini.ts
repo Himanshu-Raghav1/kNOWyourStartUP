@@ -34,10 +34,12 @@ export const CHALLENGE_RESPONSE_SCHEMA: ResponseSchema = {
           id: { type: SchemaType.STRING },
           category: {
             type: SchemaType.STRING,
+            format: "enum",
             enum: ["cliche", "contradiction", "audience_mismatch", "scalability_risk"]
           },
           severity: {
             type: SchemaType.STRING,
+            format: "enum",
             enum: ["high", "medium", "low"]
           },
           description: { type: SchemaType.STRING },
