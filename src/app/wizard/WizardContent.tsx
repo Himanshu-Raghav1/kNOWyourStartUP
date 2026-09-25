@@ -63,13 +63,8 @@ export default function WizardContent() {
     return isMockMode ? 1 : project.current_stage;
   });
 
-  // Stage 1 Input State
-  const [rawIdeaInput, setRawIdeaInput] = useState<string>(
-    "I want to create an app that helps university students find complementary project teammates based on verified work styles."
-  );
-  const [contextInput, setContextInput] = useState<string>(
-    "Target Audience: University Students & Hackathon Builders. Current broken workaround: Duct-taped spreadsheets & messy Notion docs. Non-negotiable constraint: Zero friction setup — works in under 60 seconds."
-  );
+  // Stage 1 Input State (Starts completely blank per user requirement)
+  const [rawIdeaInput, setRawIdeaInput] = useState<string>("");
 
   // UI state
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -111,16 +106,21 @@ export default function WizardContent() {
   };
 
   /**
-   * STAGE 1: Execute Discovery LLM Generation
+   * STAGE 1: Execute Discovery LLM Generation via Google Gemini
    */
-  const handleExecuteStage1 = async (idea: string, context: string) => {
-    if (!idea.trim()) {
+  const handleExecuteStage1 = async (payload: {
+    rawIdea: string;
+    vision: string;
+    problem: string;
+    selectedPersonas: string[];
+    ambiguityAnswers: Record<string, string>;
+  }) => {
+    if (!payload.rawIdea.trim()) {
       setErrorMsg("Please enter an initial product idea.");
       return;
     }
 
-    setRawIdeaInput(idea);
-    setContextInput(context);
+    setRawIdeaInput(payload.rawIdea);
     setIsLoading(true);
     setErrorMsg(null);
 
@@ -128,10 +128,7 @@ export default function WizardContent() {
       const res = await fetch("/api/stages/1-discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rawIdea: idea.trim(),
-          additionalContext: context.trim()
-        })
+        body: JSON.stringify(payload)
       });
 
       const json = await res.json();
@@ -141,7 +138,7 @@ export default function WizardContent() {
 
       const updatedProject: BrandProject = {
         ...project,
-        title: `${idea.slice(0, 24)}...`,
+        title: `${payload.rawIdea.slice(0, 24)}...`,
         current_stage: Math.max(project.current_stage, 2),
         discover_data: json.data as DiscoverData
       };
@@ -149,6 +146,7 @@ export default function WizardContent() {
       setProject(updatedProject);
       await persistProjectState(updatedProject);
       triggerToast("✓ Stage 01 Discovery Intelligence Synthesized & Chained!");
+      setActiveStage(2);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
       setErrorMsg(msg);
@@ -633,10 +631,9 @@ ${project.visualize_data?.colorPalette.map(c => `- **${c.name}** (\`${c.hex}\`):
               {activeStage === 1 && (
                 <DiscoverInterview
                   initialIdea={rawIdeaInput}
-                  initialContext={contextInput}
                   data={project.discover_data}
                   isLoading={isLoading}
-                  onExecute={handleExecuteStage1}
+                  onExecuteDiscovery={handleExecuteStage1}
                   onAdvance={() => setActiveStage(2)}
                 />
               )}

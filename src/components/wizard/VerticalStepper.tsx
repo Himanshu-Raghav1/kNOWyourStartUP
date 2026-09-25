@@ -34,8 +34,8 @@ export const STAGE_CONFIGS: StageConfig[] = [
   {
     id: 1,
     name: "Discover",
-    subtitle: "Problem, Audience & Pain Points",
-    provider: "Groq (Llama 3.3)",
+    subtitle: "Root Friction & Persona Matrix",
+    provider: "Gemini 2.5 Pro",
     icon: Compass,
     accentColor: "#FF542E",
     badgeBg: "bg-[#FF542E]/10",
@@ -45,7 +45,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
   {
     id: 2,
     name: "Position",
-    subtitle: "Category & Contrarian Angle",
+    subtitle: "Category Wedge & Hegemony",
     provider: "Groq (Llama 3.3)",
     icon: Layers,
     accentColor: "#38bdf8",
@@ -56,7 +56,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
   {
     id: 3,
     name: "Shape",
-    subtitle: "Naming Territories & Voice",
+    subtitle: "Linguistic Territories & Voice",
     provider: "Groq (Llama 3.3)",
     icon: Sparkles,
     accentColor: "#c084fc",
@@ -67,7 +67,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
   {
     id: 4,
     name: "Visualize",
-    subtitle: "Color Swatches & Typography",
+    subtitle: "Chromatic Tokens & Typography",
     provider: "Groq (Llama 3.3)",
     icon: Palette,
     accentColor: "#34d399",
@@ -89,7 +89,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
   {
     id: 6,
     name: "Deliver",
-    subtitle: "Launch Hero & Campaign Kit",
+    subtitle: "Launch Manifesto & Asset Deck",
     provider: "Groq (Llama 3.3)",
     icon: Zap,
     accentColor: "#fbbf24",

@@ -1,246 +1,294 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { DiscoverData } from "@/types";
 import {
-  Compass,
+  ClarifyQuestion,
+  Stage1ClarifyResult,
+  Stage1ProbeResult,
+  IdeaInterpretation,
+  Stage1InterpretResult
+} from "@/lib/llm/gemini";
+import {
   Sparkles,
   ArrowRight,
-  ArrowLeft,
   RefreshCw,
   Target,
   AlertTriangle,
   Lightbulb,
   CheckCircle2,
-  Flame,
   Zap,
-  RotateCcw
+  HelpCircle,
+  RotateCcw,
+  Check,
+  Plus,
+  ChevronRight,
+  Users,
+  Wrench,
+  PenLine,
+  MessageCircleQuestion
 } from "lucide-react";
+
+// Four phases the UI can be in
+type Phase = "initial" | "interpret" | "clarify" | "quadrants";
 
 interface DiscoverInterviewProps {
   initialIdea: string;
-  initialContext: string;
   data: DiscoverData | null;
   isLoading: boolean;
-  onExecute: (idea: string, context: string) => void;
+  onExecuteDiscovery: (payload: {
+    rawIdea: string;
+    vision: string;
+    problem: string;
+    selectedPersonas: string[];
+    ambiguityAnswers: Record<string, string>;
+  }) => void;
   onAdvance: () => void;
 }
 
-interface DomainDiscovery {
-  problem: string;
-  audience: string;
-  workaround: string;
-  superpower: string;
-  altAudiences: string[];
-  altWorkarounds: string[];
-  altSuperpowers: string[];
-}
-
-const DOMAIN_INTELLIGENCE: Record<string, DomainDiscovery> = {
-  fintech: {
-    problem: "Solo creators and freelancers juggle irregular client income, messy deductions, and unpredictable cashflow without an easy way to understand their real-time tax liability or financial runway.",
-    audience: "Solo creators, independent freelancers, and boutique digital studio founders managing unpredictable revenue streams.",
-    workaround: "Duct-taped spreadsheets, manual receipt tracking, and bloated legacy tools (QuickBooks / Xero) built for CPAs rather than creators.",
-    superpower: "Plain-English cashflow forecasting with zero accounting jargon, automated real-time tax liability calculations, and instant 1-click invoice tracking.",
-    altAudiences: [
-      "Digital nomads & remote consultants billing global clients",
-      "Shopify & e-commerce solopreneurs managing inventory cashflow"
-    ],
-    altWorkarounds: [
-      "Logging into 5 separate bank and Stripe dashboards every morning",
-      "Tax season panic with lost paper receipts and missed deductions"
-    ],
-    altSuperpowers: [
-      "Automated write-off detection with on-device encrypted receipt scanning",
-      "Predictive runway alerts before taking on expensive subcontractors"
-    ]
-  },
-  students: {
-    problem: "University students routinely get paired with unresponsive or mismatched teammates on high-stakes projects, causing academic stress, uneven workloads, and missed hackathon deadlines.",
-    audience: "Undergraduate STEM & design students, hackathon builders, and capstone project teams.",
-    workaround: "Chaotic Discord / WhatsApp group chats, awkward classroom announcements, and shared Google Sheets spreadsheets.",
-    superpower: "Verified commitment ratings and working-style compatibility matching to eliminate free-riders and ghosting.",
-    altAudiences: [
-      "Student club organizers forming cross-functional competitive teams",
-      "Self-taught indie hackers looking for technical co-founders on campus"
-    ],
-    altWorkarounds: [
-      "Awkward cold DMs on LinkedIn with zero proof of actual skill",
-      "Random, frustrating team assignments mandated by course professors"
-    ],
-    altSuperpowers: [
-      "Zero-ghosting guarantee with reciprocal peer accountability scoring",
-      "Free forever for verified .edu university student emails"
-    ]
-  },
-  devtool: {
-    problem: "Engineering teams suffer from severe context switching and noisy alert fatigue across fragmented dashboards, slowing down shipping velocity and degrading developer experience.",
-    audience: "Founding engineers, tech leads, and platform teams at high-growth software companies.",
-    workaround: "Brittle bash scripts, unmaintained internal wikis, and noisy Slack alert channels.",
-    superpower: "CLI-first, sub-50ms execution speed with 100% local privacy and native GitOps ergonomics.",
-    altAudiences: [
-      "Solo full-stack developers shipping micro-SaaS applications",
-      "Open-source maintainers managing community pull requests"
-    ],
-    altWorkarounds: [
-      "Fragmented observability dashboards (Datadog/New Relic) with noisy alerts",
-      "Constant context switching between Jira, GitHub, and Slack"
-    ],
-    altSuperpowers: [
-      "Self-hostable open-source core with Docker/Kubernetes deployment",
-      "Zero external network telemetry: 100% local machine execution"
-    ]
-  },
-  default: {
-    problem: "Target customers are forced to use slow, fragmented legacy tools that require steep learning curves and hours of manual coordination, leading to wasted time and lost revenue.",
-    audience: "Bootstrapped founders, solo operators, and modern digital knowledge workers.",
-    workaround: "Scattered Notion pages, messy spreadsheets, and disjointed email threads.",
-    superpower: "Zero-friction onboarding that delivers 10x faster time-to-value with modern, delightful UX.",
-    altAudiences: [
-      "Small agile remote teams looking to streamline workflows",
-      "High-output operators seeking unfair automation leverage"
-    ],
-    altWorkarounds: [
-      "Endless Slack threads and lost follow-ups across tools",
-      "Paying high retainer fees to external agencies and contractors"
-    ],
-    altSuperpowers: [
-      "Radically transparent pricing with no contracts or lock-ins",
-      "Multiplayer real-time collaboration with zero sync lag"
-    ]
-  }
-};
-
-function getDomainDiscovery(text: string): DomainDiscovery {
-  const lower = text.toLowerCase();
-  if (
-    lower.includes("financ") ||
-    lower.includes("creator") ||
-    lower.includes("money") ||
-    lower.includes("tax") ||
-    lower.includes("invoice") ||
-    lower.includes("accounting") ||
-    lower.includes("bank") ||
-    lower.includes("freelance")
-  ) {
-    return DOMAIN_INTELLIGENCE.fintech;
-  }
-  if (
-    lower.includes("student") ||
-    lower.includes("hackathon") ||
-    lower.includes("campus") ||
-    lower.includes("university") ||
-    lower.includes("teammate") ||
-    lower.includes("college")
-  ) {
-    return DOMAIN_INTELLIGENCE.students;
-  }
-  if (
-    lower.includes("developer") ||
-    lower.includes("code") ||
-    lower.includes("api") ||
-    lower.includes("engineering") ||
-    lower.includes("devops") ||
-    lower.includes("terminal") ||
-    lower.includes("infra")
-  ) {
-    return DOMAIN_INTELLIGENCE.devtool;
-  }
-  return DOMAIN_INTELLIGENCE.default;
-}
-
-const STARTER_IDEAS = [
-  {
-    tag: "Creator Fintech",
-    text: "A zero-friction financial intelligence command center for solo creators and freelancers."
-  },
-  {
-    tag: "Student Network",
-    text: "An app that helps university students find complementary project teammates based on verified work styles."
-  },
-  {
-    tag: "AI DevTool",
-    text: "An AI teammate that replaces chaotic project management for startup engineering leads."
-  }
-];
-
 export function DiscoverInterview({
   initialIdea,
-  initialContext,
   data,
   isLoading,
-  onExecute,
+  onExecuteDiscovery,
   onAdvance
 }: DiscoverInterviewProps) {
-  const [idea, setIdea] = useState<string>(initialIdea || "");
-  const [isSplit, setIsSplit] = useState<boolean>(Boolean(data) || Boolean(initialIdea && initialIdea.length > 15));
+  // ── Phase state ──────────────────────────────────────────────────────────────
+  const [phase, setPhase] = useState<Phase>(data ? "quadrants" : "initial");
+  const [isProbing, setIsProbing] = useState(false);
 
-  // The 4 Discovery Pillars
-  const [problem, setProblem] = useState<string>("");
-  const [audience, setAudience] = useState<string>("");
-  const [workaround, setWorkaround] = useState<string>("");
-  const [superpower, setSuperpower] = useState<string>("");
-  const [activeIntel, setActiveIntel] = useState<DomainDiscovery>(DOMAIN_INTELLIGENCE.default);
+  // ── Phase 1: raw idea ────────────────────────────────────────────────────────
+  const [rawIdea, setRawIdea] = useState(initialIdea || "");
 
-  // Sync initial state
-  useEffect(() => {
-    if (data) {
-      setProblem(data.problemStatement);
-      setAudience(data.targetAudience.primarySegment);
-      setWorkaround(data.targetAudience.acutePainPoints?.join(", ") || "");
-      setSuperpower(data.primaryValueHook);
-      setIsSplit(true);
-    } else if (idea.trim()) {
-      const intel = getDomainDiscovery(idea);
-      setActiveIntel(intel);
-      if (!problem) setProblem(intel.problem);
-      if (!audience) setAudience(intel.audience);
-      if (!workaround) setWorkaround(intel.workaround);
-      if (!superpower) setSuperpower(intel.superpower);
-    }
-  }, [data, idea]);
+  // ── Phase 2: interpretations ─────────────────────────────────────────────────
+  const [interpretations, setInterpretations] = useState<IdeaInterpretation[]>([]);
+  const [selectedInterpId, setSelectedInterpId] = useState<string | null>(null);
+  // The user's confirmed/edited version of the idea — may be the card text or their own words
+  const [confirmedIdea, setConfirmedIdea] = useState("");
+  const [showCustomBox, setShowCustomBox] = useState(false);
 
-  const handleNextClick = () => {
-    if (!idea.trim()) return;
-    const intel = getDomainDiscovery(idea);
-    setActiveIntel(intel);
-    setProblem(intel.problem);
-    setAudience(intel.audience);
-    setWorkaround(intel.workaround);
-    setSuperpower(intel.superpower);
-    setIsSplit(true);
-  };
+  // ── Phase 3: clarifying questions ──────────────────────────────────────────
+  const [clarifyQuestions, setClarifyQuestions] = useState<ClarifyQuestion[]>([]);
+  const [clarifyAnswers, setClarifyAnswers] = useState<Record<string, string>>({});
+  // Per-question custom text the user types on top of the selected option
+  const [clarifyCustom, setClarifyCustom] = useState<Record<string, string>>({});
+  const [clarifyShowCustom, setClarifyShowCustom] = useState<Record<string, boolean>>({});
 
-  const handleResetToSingleBox = () => {
-    setIsSplit(false);
-  };
+  // ── Phase 4: 4-quadrant discovery ──────────────────────────────────────────
+  const [domainLabel, setDomainLabel] = useState("Your Product");
+  const [coreVision, setCoreVision] = useState("");
+  const [coreProblem, setCoreProblem] = useState("");
+  const [personaOptions, setPersonaOptions] = useState<string[]>([]);
+  const [selectedPersonas, setSelectedPersonas] = useState<string[]>([]);
+  const [customPersonaInput, setCustomPersonaInput] = useState("");
+  const [showCustomPersona, setShowCustomPersona] = useState(false);
+  const [ambiguities, setAmbiguities] = useState<Stage1ProbeResult["ambiguities"]>([]);
+  const [ambiguityAnswers, setAmbiguityAnswers] = useState<Record<string, string>>({});
+  // Per-ambiguity custom text the user types on top of the selected option
+  const [ambiguityCustom, setAmbiguityCustom] = useState<Record<string, string>>({});
+  const [ambiguityShowCustom, setAmbiguityShowCustom] = useState<Record<string, boolean>>({});
 
-  const handleConfirmAndAdvance = (e: React.FormEvent) => {
+  // ── Step 1: Click "Discover" → call interpret API ────────────────────────────
+  const handleDiscoverClick = async (e: React.FormEvent) => {
     e.preventDefault();
-    const context = `Problem: ${problem}. Target Audience: ${audience}. Broken Current Workaround: ${workaround}. Core Superpower: ${superpower}.`;
-    onExecute(idea, context);
+    if (!rawIdea.trim()) return;
+    setIsProbing(true);
+    try {
+      const res = await fetch("/api/stages/1-discover/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawIdea: rawIdea.trim(), step: "interpret" })
+      });
+      const json = await res.json();
+      if (!json.error && json.data) {
+        const interpretData = json.data as Stage1InterpretResult;
+        const interps = interpretData.interpretations || [];
+        setInterpretations(interps);
+        // Pre-select the first interpretation
+        if (interps.length > 0) {
+          setSelectedInterpId(interps[0].id);
+          setConfirmedIdea(interps[0].summary);
+        }
+        setPhase("interpret");
+      } else {
+        // Fall through to clarify if interpret fails
+        await loadClarifyQuestions();
+      }
+    } catch {
+      await loadClarifyQuestions();
+    } finally {
+      setIsProbing(false);
+    }
+  };
+
+  // ── When user selects an interpretation card ──────────────────────────────────
+  const handleSelectInterp = (interp: IdeaInterpretation) => {
+    setSelectedInterpId(interp.id);
+    setConfirmedIdea(interp.summary);
+    setShowCustomBox(false);
+  };
+
+  // ── Step 2: Confirm interpretation → call clarify API ────────────────────────
+  const handleInterpNext = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmedIdea.trim()) return;
+    setIsProbing(true);
+    await loadClarifyQuestions();
+    setIsProbing(false);
+  };
+
+  const loadClarifyQuestions = async () => {
+    try {
+      // Use the confirmed/edited idea as the context for clarify questions
+      const ideaToUse = confirmedIdea.trim() || rawIdea.trim();
+      const res = await fetch("/api/stages/1-discover/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawIdea: ideaToUse, step: "clarify" })
+      });
+      const json = await res.json();
+      if (!json.error && json.data) {
+        const clarifyData = json.data as Stage1ClarifyResult;
+        const questions = clarifyData.questions || [];
+        setClarifyQuestions(questions);
+        // Pre-select first option for each question
+        const defaults: Record<string, string> = {};
+        questions.forEach((q) => {
+          if (q.options?.length > 0) defaults[q.id] = q.options[0];
+        });
+        setClarifyAnswers(defaults);
+        setPhase("clarify");
+      } else {
+        await loadQuadrants(undefined);
+      }
+    } catch {
+      await loadQuadrants(undefined);
+    }
+  };
+
+  // ── Step 3: Click "Next" → call fill API with answers ───────────────────────
+  const handleClarifyNext = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProbing(true);
+    // Merge any custom text the user typed into clarify answers
+    const mergedAnswers: Record<string, string> = { ...clarifyAnswers };
+    Object.entries(clarifyCustom).forEach(([id, customText]) => {
+      if (customText.trim()) {
+        // Append custom text to the selected option or use as standalone
+        const existing = mergedAnswers[id];
+        mergedAnswers[id] = existing
+          ? `${existing} — ${customText.trim()}`
+          : customText.trim();
+      }
+    });
+    await loadQuadrants(mergedAnswers);
+    setIsProbing(false);
+  };
+
+  const loadQuadrants = async (answers?: Record<string, string>) => {
+    try {
+      const res = await fetch("/api/stages/1-discover/probe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rawIdea: rawIdea.trim(),
+          confirmedIdea: confirmedIdea.trim() || rawIdea.trim(),
+          step: "fill",
+          clarifyAnswers: answers || {}
+        })
+      });
+      const json = await res.json();
+      if (!json.error && json.data) {
+        const probe = json.data as Stage1ProbeResult;
+        setDomainLabel(probe.domainName || "Your Product");
+        setCoreVision(probe.coreVision || "");
+        setCoreProblem(probe.coreProblem || "");
+        setPersonaOptions(probe.personaOptions || []);
+        setSelectedPersonas(probe.personaOptions?.slice(0, 2) || []);
+        setAmbiguities(probe.ambiguities || []);
+        const defaultAmbs: Record<string, string> = {};
+        probe.ambiguities?.forEach((a) => {
+          if (a.options?.length > 0) defaultAmbs[a.id] = a.options[0];
+        });
+        setAmbiguityAnswers(defaultAmbs);
+      }
+    } catch {
+      // minimal fallback
+      setCoreVision("Help people do something important, faster and better.");
+      setCoreProblem("Current tools are too complex, too slow, or not built for this specific need.");
+      setPersonaOptions([
+        "People dealing with this problem daily",
+        "Small teams without specialized help",
+        "Beginners who find existing options too complex"
+      ]);
+      setSelectedPersonas(["People dealing with this problem daily"]);
+    }
+    setPhase("quadrants");
+  };
+
+  const togglePersona = (p: string) =>
+    setSelectedPersonas((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+    );
+
+  const handleAddCustomPersona = () => {
+    const trimmed = customPersonaInput.trim();
+    if (trimmed && !personaOptions.includes(trimmed)) {
+      setPersonaOptions((prev) => [...prev, trimmed]);
+      setSelectedPersonas((prev) => [...prev, trimmed]);
+      setCustomPersonaInput("");
+      setShowCustomPersona(false);
+    }
+  };
+
+  // ── Step 4: Synthesize → send to parent ─────────────────────────────────────
+  const handleFinalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Merge any custom ambiguity text
+    const mergedAmb: Record<string, string> = { ...ambiguityAnswers };
+    Object.entries(ambiguityCustom).forEach(([id, customText]) => {
+      if (customText.trim()) {
+        const existing = mergedAmb[id];
+        mergedAmb[id] = existing
+          ? `${existing} — ${customText.trim()}`
+          : customText.trim();
+      }
+    });
+    onExecuteDiscovery({
+      rawIdea: confirmedIdea.trim() || rawIdea.trim(),
+      vision: coreVision.trim(),
+      problem: coreProblem.trim(),
+      selectedPersonas: selectedPersonas.length > 0 ? selectedPersonas : personaOptions.slice(0, 1),
+      ambiguityAnswers: mergedAmb
+    });
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.08]">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-[#FF542E]/15 text-[#FF542E] border border-[#FF542E]/30 font-bold">
-              Stage 01 · Discovery Architecture
+            <span className="text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-[#FF542E]/15 text-[#FF542E] border border-[#FF542E]/30 font-bold tracking-wider">
+              Step 1 of 6 · Discover Your Idea
             </span>
-            <span className="text-xs text-slate-500 font-mono">
-              The 4 Foundational Pillars
-            </span>
+            <span className="text-xs text-slate-500 font-mono">Powered by Google Gemini</span>
           </div>
           <h2 className="font-heading font-black text-2xl sm:text-3xl text-white mt-1.5 tracking-tight">
-            Founder Discovery
+            {phase === "initial" && "Tell us your idea"}
+            {phase === "interpret" && "Which one sounds right?"}
+            {phase === "clarify" && "Quick questions — just 30 seconds"}
+            {phase === "quadrants" && "Here's what we understood"}
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-            {isSplit
-              ? "We unpacked your raw spark into the 4 core discovery pillars. Refine the details below before locking Stage 1."
-              : "Every iconic brand starts from a clean spark. Enter your raw product idea to unpack its discovery architecture."}
+            {phase === "initial" &&
+              "Share your rough idea — no need to have everything figured out. We'll help you make sense of it."}
+            {phase === "interpret" &&
+              "We read your idea and came up with a few ways it could go. Pick the one that feels closest — then add your own words if needed."}
+            {phase === "clarify" &&
+              "We have a few short questions so we understand your idea correctly before building your brand."}
+            {phase === "quadrants" &&
+              "We've broken your idea into 4 key areas. Review and edit anything that doesn't look right — then we'll move on."}
           </p>
         </div>
 
@@ -249,263 +297,613 @@ export function DiscoverInterview({
             onClick={onAdvance}
             className="px-5 py-2.5 rounded-xl bg-[#FF542E] hover:bg-[#ff6947] text-white font-bold text-xs transition flex items-center gap-2 shrink-0 shadow-lg shadow-[#FF542E]/25"
           >
-            Advance to Stage 2 (Position) <ArrowRight className="w-4 h-4" />
+            Continue to Step 2 <ArrowRight className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* STATE 1: INITIAL SINGLE BOX ONLY */}
-      {!isSplit ? (
-        <div className="glass-panel p-8 sm:p-10 rounded-3xl border border-white/10 space-y-6 max-w-3xl mx-auto shadow-2xl relative overflow-hidden bg-gradient-to-b from-[#0e111a] to-[#07090e]">
-          <div className="space-y-2">
-            <label className="font-heading font-bold text-lg text-white block">
-              What is your core product or raw idea?
+      {/* ── PHASE 1: Initial blank box ─────────────────────────────────────── */}
+      {phase === "initial" && (
+        <form
+          onSubmit={handleDiscoverClick}
+          className="glass-panel p-8 sm:p-12 rounded-3xl border border-white/10 space-y-6 max-w-3xl mx-auto shadow-2xl relative overflow-hidden bg-gradient-to-b from-[#0d1017] to-[#07090e]"
+        >
+          <div className="space-y-2 text-center sm:text-left">
+            <label className="font-heading font-black text-xl text-white block tracking-tight">
+              What's your idea?
             </label>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Describe in 1–2 plain sentences what you are creating and who it is for.
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Describe what you want to build in your own words. Don't worry about making it sound perfect — just say what's on your mind.
             </p>
           </div>
 
           <textarea
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            rows={4}
+            value={rawIdea}
+            onChange={(e) => setRawIdea(e.target.value)}
+            rows={5}
             autoFocus
-            className="w-full bg-[#040508] border border-white/10 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-600"
-            placeholder="e.g. A zero-friction financial intelligence command center for solo creators and freelancers..."
+            className="w-full bg-[#040508] border border-white/10 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-600 focus:ring-1 focus:ring-[#FF542E]/50"
+            placeholder="e.g. An app that helps dog owners find trusted pet sitters nearby..."
           />
 
-          {/* Minimal Idea Starters */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-              Quick Ingest Inspiration:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {STARTER_IDEAS.map((item, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setIdea(item.text)}
-                  className={`text-xs px-3 py-1.5 rounded-xl border transition ${
-                    idea === item.text
-                      ? "bg-[#FF542E]/20 text-white border-[#FF542E]/50 font-medium"
-                      : "bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 border-white/5"
-                  }`}
-                >
-                  <span className="text-slate-500 mr-1.5 font-mono">#{item.tag}:</span>
-                  &ldquo;{item.text.slice(0, 42)}...&rdquo;
-                </button>
-              ))}
-            </div>
-          </div>
-
           <button
-            type="button"
-            onClick={handleNextClick}
-            disabled={!idea.trim()}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-sm transition flex items-center justify-center gap-2 shadow-xl shadow-[#FF542E]/25"
+            type="submit"
+            disabled={!rawIdea.trim() || isProbing}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25 cursor-pointer"
           >
-            <span>Next: Unpack Discovery Structure</span>
-            <ArrowRight className="w-4 h-4" />
+            {isProbing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Reading your idea...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Discover my idea</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
-        </div>
-      ) : (
-        /* STATE 2: THE 4 SPLIT BOXES (CLEAN 2x2 QUADRANT) */
-        <form onSubmit={handleConfirmAndAdvance} className="space-y-6">
-          {/* Top Idea Anchor Bar */}
-          <div className="glass-panel px-5 py-3.5 rounded-2xl border border-white/10 bg-white/[0.02] flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="text-[10px] font-mono uppercase text-[#FF542E] bg-[#FF542E]/10 px-2 py-0.5 rounded-md border border-[#FF542E]/20 shrink-0 font-bold">
-                Idea Spark
-              </span>
-              <p className="text-xs text-white font-medium truncate">
-                &ldquo;{idea}&rdquo;
-              </p>
-            </div>
+        </form>
+      )}
+
+      {/* ── PHASE 2: Interpretation cards ─────────────────────────────────── */}
+      {phase === "interpret" && (
+        <form
+          onSubmit={handleInterpNext}
+          className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300"
+        >
+          {/* Raw idea recap */}
+          <div className="glass-panel px-5 py-3.5 rounded-2xl border border-white/10 bg-white/[0.02] flex items-center justify-between gap-3">
+            <p className="text-xs text-white font-medium truncate">&ldquo;{rawIdea}&rdquo;</p>
             <button
               type="button"
-              onClick={handleResetToSingleBox}
-              className="text-[11px] font-mono text-slate-400 hover:text-white transition flex items-center gap-1 shrink-0"
+              onClick={() => setPhase("initial")}
+              className="text-[11px] font-mono text-slate-400 hover:text-white transition flex items-center gap-1.5 shrink-0"
             >
-              <RotateCcw className="w-3 h-3" /> Edit Idea
+              <RotateCcw className="w-3.5 h-3.5" /> Edit
             </button>
           </div>
 
-          {/* The 4 Discovery Pillars (Clean 2x2 Grid) */}
+          {/* Interpretation cards */}
+          <div className="space-y-3">
+            {interpretations.map((interp, idx) => {
+              const isSelected = selectedInterpId === interp.id;
+              const letters = ["A", "B", "C"];
+              return (
+                <button
+                  key={interp.id}
+                  type="button"
+                  onClick={() => handleSelectInterp(interp)}
+                  className={`w-full text-left p-5 rounded-2xl border transition-all duration-200 space-y-3 ${
+                    isSelected
+                      ? "bg-[#FF542E]/10 border-[#FF542E] shadow-md shadow-[#FF542E]/10"
+                      : "bg-white/[0.025] border-white/10 hover:bg-white/[0.05] hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Letter badge + radio */}
+                    <div className="flex items-center gap-2.5 shrink-0 mt-0.5">
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition ${
+                          isSelected
+                            ? "bg-[#FF542E] border-[#FF542E]"
+                            : "border-white/25 bg-black/40"
+                        }`}
+                      >
+                        {isSelected ? (
+                          <Check className="w-3 h-3 stroke-[3] text-white" />
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-400">{letters[idx]}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold leading-tight ${isSelected ? "text-white" : "text-slate-200"}`}>
+                        {interp.title}
+                      </p>
+                      <p className={`text-xs mt-1.5 leading-relaxed ${isSelected ? "text-slate-300" : "text-slate-400"}`}>
+                        {interp.summary}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Who / What row */}
+                  <div className="flex flex-col sm:flex-row gap-2 pl-8">
+                    <div className={`flex items-start gap-1.5 flex-1 text-[11px] rounded-xl px-3 py-2 ${isSelected ? "bg-white/[0.08]" : "bg-black/30"}`}>
+                      <Users className="w-3.5 h-3.5 shrink-0 mt-0.5 text-sky-400" />
+                      <span className={`leading-snug ${isSelected ? "text-sky-200" : "text-slate-400"}`}>
+                        <span className="font-semibold text-slate-300">For: </span>{interp.whoItsFor}
+                      </span>
+                    </div>
+                    <div className={`flex items-start gap-1.5 flex-1 text-[11px] rounded-xl px-3 py-2 ${isSelected ? "bg-white/[0.08]" : "bg-black/30"}`}>
+                      <Wrench className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                      <span className={`leading-snug ${isSelected ? "text-amber-200" : "text-slate-400"}`}>
+                        <span className="font-semibold text-slate-300">Does: </span>{interp.whatItDoes}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom option toggle */}
+          {!showCustomBox ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowCustomBox(true);
+                setSelectedInterpId(null);
+                setConfirmedIdea("");
+              }}
+              className="flex items-center gap-2 text-[12px] font-medium text-slate-400 hover:text-white transition px-1"
+            >
+              <MessageCircleQuestion className="w-4 h-4 text-[#FF542E]" />
+              None of these feel right — let me describe it myself
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-300 font-medium flex items-center gap-1.5">
+                <PenLine className="w-3.5 h-3.5 text-[#FF542E]" />
+                Describe your idea in your own words:
+              </p>
+              <textarea
+                autoFocus
+                value={confirmedIdea}
+                onChange={(e) => setConfirmedIdea(e.target.value)}
+                rows={3}
+                placeholder="e.g. It's more like a marketplace where pet owners post what they need and sitters bid on it..."
+                className="w-full bg-[#040508] border border-[#FF542E]/40 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-600"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCustomBox(false);
+                  if (interpretations.length > 0) {
+                    setSelectedInterpId(interpretations[0].id);
+                    setConfirmedIdea(interpretations[0].summary);
+                  }
+                }}
+                className="text-[11px] text-slate-500 hover:text-slate-300 transition"
+              >
+                ← Back to options
+              </button>
+            </div>
+          )}
+
+          {/* "Add your own words" expander when a card is selected */}
+          {selectedInterpId && !showCustomBox && (
+            <div className="space-y-2 pt-1">
+              <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+                <PenLine className="w-3 h-3" /> Want to add or change something in this description?
+              </p>
+              <textarea
+                value={confirmedIdea !== interpretations.find(i => i.id === selectedInterpId)?.summary ? confirmedIdea : ""}
+                onChange={(e) => {
+                  const card = interpretations.find(i => i.id === selectedInterpId);
+                  // If user clears it, restore the card's summary
+                  setConfirmedIdea(e.target.value || card?.summary || "");
+                }}
+                rows={2}
+                placeholder="Add details, fix anything wrong, or rewrite it completely..."
+                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FF542E] transition leading-relaxed placeholder:text-slate-600"
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isProbing || (!selectedInterpId && !confirmedIdea.trim())}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25"
+          >
+            {isProbing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Got it, digging deeper...</span>
+              </>
+            ) : (
+              <>
+                <ChevronRight className="w-4 h-4" />
+                <span>Yes, this is my idea — next</span>
+              </>
+            )}
+          </button>
+        </form>
+      )}
+
+      {/* ── PHASE 3: Clarifying questions ─────────────────────────────────── */}
+      {phase === "clarify" && (
+        <form
+          onSubmit={handleClarifyNext}
+          className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300"
+        >
+          {/* Confirmed idea recap */}
+          <div className="glass-panel px-5 py-3.5 rounded-2xl border border-white/10 bg-white/[0.02] flex items-center justify-between gap-3">
+            <p className="text-xs text-white font-medium truncate">&ldquo;{confirmedIdea || rawIdea}&rdquo;</p>
+            <button
+              type="button"
+              onClick={() => setPhase("interpret")}
+              className="text-[11px] font-mono text-slate-400 hover:text-white transition flex items-center gap-1.5 shrink-0"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Back
+            </button>
+          </div>
+
+          {/* Questions */}
+          <div className="space-y-5">
+            {clarifyQuestions.map((q, qi) => (
+              <div
+                key={q.id}
+                className="glass-panel p-5 rounded-2xl border border-white/10 space-y-3 bg-[#0a0d14]/70"
+              >
+                <div>
+                  <p className="text-sm font-bold text-white leading-tight">
+                    {qi + 1}. {q.question}
+                  </p>
+                  {q.hint && (
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-mono">{q.hint}</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  {q.options.map((opt, oi) => {
+                    const isSelected = clarifyAnswers[q.id] === opt;
+                    return (
+                      <button
+                        key={oi}
+                        type="button"
+                        onClick={() =>
+                          setClarifyAnswers((prev) => ({ ...prev, [q.id]: opt }))
+                        }
+                        className={`text-left p-3 rounded-xl border text-xs transition flex items-center gap-2 ${
+                          isSelected
+                            ? "bg-[#FF542E]/15 border-[#FF542E] text-white font-semibold shadow-sm shadow-[#FF542E]/10"
+                            : "bg-white/[0.03] border-white/10 text-slate-300 hover:bg-white/[0.07] hover:text-white"
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition ${
+                            isSelected
+                              ? "bg-[#FF542E] border-[#FF542E]"
+                              : "border-white/25 bg-black/40"
+                          }`}
+                        >
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3] text-white" />}
+                        </div>
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Per-question custom input — "add your own words to this answer" */}
+                {!clarifyShowCustom[q.id] ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setClarifyShowCustom((prev) => ({ ...prev, [q.id]: true }))
+                    }
+                    className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 hover:text-slate-300 transition pt-0.5"
+                  >
+                    <Plus className="w-3 h-3" /> Add your own words to this answer
+                  </button>
+                ) : (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                      <PenLine className="w-3 h-3" /> Your addition:
+                    </p>
+                    <input
+                      type="text"
+                      autoFocus
+                      value={clarifyCustom[q.id] || ""}
+                      onChange={(e) =>
+                        setClarifyCustom((prev) => ({ ...prev, [q.id]: e.target.value }))
+                      }
+                      placeholder="e.g. specifically for dog owners, not cats..."
+                      className="w-full bg-[#040508] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF542E] transition placeholder:text-slate-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setClarifyShowCustom((prev) => ({ ...prev, [q.id]: false }))
+                      }
+                      className="text-[10px] text-slate-600 hover:text-slate-400 transition"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isProbing}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-sm transition flex items-center justify-center gap-2.5 shadow-xl shadow-[#FF542E]/25"
+          >
+            {isProbing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Building your brand overview...</span>
+              </>
+            ) : (
+              <>
+                <ChevronRight className="w-4 h-4" />
+                <span>Next — show me my brand overview</span>
+              </>
+            )}
+          </button>
+        </form>
+      )}
+
+      {/* ── PHASE 4: 4 Discovery Quadrants ────────────────────────────────── */}
+      {phase === "quadrants" && (
+        <form onSubmit={handleFinalSubmit} className="space-y-6 animate-in fade-in duration-300">
+          {/* Idea recap bar */}
+          <div className="glass-panel px-5 py-3.5 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-[10px] font-mono uppercase text-[#FF542E] bg-[#FF542E]/10 px-2.5 py-0.5 rounded-md border border-[#FF542E]/25 shrink-0 font-bold">
+                {domainLabel}
+              </span>
+              <p className="text-xs text-white font-medium truncate">&ldquo;{confirmedIdea || rawIdea}&rdquo;</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPhase("initial")}
+              className="text-[11px] font-mono text-slate-400 hover:text-white transition flex items-center gap-1.5 shrink-0 self-end sm:self-auto"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Start over
+            </button>
+          </div>
+
+          {/* 4 Quadrants */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* BOX 1: Sharpened Problem */}
+            {/* Q1: Vision */}
             <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0a0d14]/70">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#FF542E]/20 text-[#FF542E] flex items-center justify-center font-bold">
-                    <Flame className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-xs text-white">01 · Acute Problem</h3>
-                    <p className="text-[10px] font-mono text-slate-400">Core friction being eliminated</p>
-                  </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#FF542E]/15 text-[#FF542E] flex items-center justify-center">
+                  <Lightbulb className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-xs text-white uppercase tracking-wider">
+                    The Big Dream
+                  </h3>
+                  <p className="text-[10px] font-mono text-slate-400">What you're working toward</p>
                 </div>
               </div>
-
               <textarea
-                value={problem}
-                onChange={(e) => setProblem(e.target.value)}
-                rows={3}
-                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FF542E] transition leading-relaxed"
-                placeholder="Describe the urgent problem..."
+                value={coreVision}
+                onChange={(e) => setCoreVision(e.target.value)}
+                rows={4}
+                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-[#FF542E] transition leading-relaxed font-sans"
+                placeholder="What does success look like? How does this change people's lives?"
               />
             </div>
 
-            {/* BOX 2: Target Audience */}
+            {/* Q2: Problem */}
             <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0a0d14]/70">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold">
-                    <Target className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-xs text-white">02 · Target Persona</h3>
-                    <p className="text-[10px] font-mono text-slate-400">Who feels this pain most acutely</p>
-                  </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-xs text-white uppercase tracking-wider">
+                    The Problem You're Fixing
+                  </h3>
+                  <p className="text-[10px] font-mono text-slate-400">Why current options don't work</p>
                 </div>
               </div>
-
               <textarea
-                value={audience}
-                onChange={(e) => setAudience(e.target.value)}
-                rows={3}
-                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-sky-400 transition leading-relaxed"
-                placeholder="Specify the hyper-specific persona..."
+                value={coreProblem}
+                onChange={(e) => setCoreProblem(e.target.value)}
+                rows={4}
+                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-400 transition leading-relaxed font-sans"
+                placeholder="What's the pain your users feel? What do they hate about the current options?"
               />
-
-              {/* Subtle suggestions */}
-              {activeIntel.altAudiences.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <span className="text-[9px] font-mono text-slate-500 uppercase mr-1">Suggestions:</span>
-                  {activeIntel.altAudiences.map((alt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setAudience(alt)}
-                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 border border-white/5 transition"
-                    >
-                      + {alt.slice(0, 36)}...
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
-            {/* BOX 3: Broken Workarounds */}
+            {/* Q3: Personas */}
             <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0a0d14]/70">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-xs text-white">03 · Broken Workarounds</h3>
-                    <p className="text-[10px] font-mono text-slate-400">Messy current habits &amp; tools</p>
-                  </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center">
+                  <Target className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-xs text-white uppercase tracking-wider">
+                    Who Is This For?
+                  </h3>
+                  <p className="text-[10px] font-mono text-slate-400">
+                    Pick everyone who fits — {selectedPersonas.length} selected
+                  </p>
                 </div>
               </div>
 
-              <textarea
-                value={workaround}
-                onChange={(e) => setWorkaround(e.target.value)}
-                rows={3}
-                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-400 transition leading-relaxed"
-                placeholder="What frustrating workaround are they using?"
-              />
-
-              {/* Subtle suggestions */}
-              {activeIntel.altWorkarounds.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <span className="text-[9px] font-mono text-slate-500 uppercase mr-1">Suggestions:</span>
-                  {activeIntel.altWorkarounds.map((alt, idx) => (
+              <div className="space-y-2 pt-1">
+                {personaOptions.map((persona, idx) => {
+                  const isSelected = selectedPersonas.includes(persona);
+                  return (
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => setWorkaround(alt)}
-                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 border border-white/5 transition"
+                      onClick={() => togglePersona(persona)}
+                      className={`w-full text-left p-3 rounded-xl border text-xs transition flex items-start gap-2.5 ${
+                        isSelected
+                          ? "bg-sky-500/15 border-sky-400 text-sky-200 font-medium shadow-sm shadow-sky-500/10"
+                          : "bg-white/[0.03] border-white/10 text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+                      }`}
                     >
-                      + {alt.slice(0, 36)}...
+                      <div
+                        className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition ${
+                          isSelected ? "bg-sky-400 border-sky-400 text-black" : "border-white/20 bg-black/40"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                      <span className="leading-snug">{persona}</span>
                     </button>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+
+                {!showCustomPersona ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomPersona(true)}
+                    className="text-[11px] font-mono text-sky-400 hover:text-sky-300 transition flex items-center gap-1.5 pt-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add someone else
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      value={customPersonaInput}
+                      onChange={(e) => setCustomPersonaInput(e.target.value)}
+                      placeholder="e.g. Stay-at-home parents..."
+                      className="flex-1 bg-[#040508] border border-sky-400/40 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomPersona}
+                      className="px-3 py-2 rounded-xl bg-sky-500 text-black font-bold text-xs"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomPersona(false)}
+                      className="text-xs text-slate-500 hover:text-slate-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* BOX 4: Unfair Superpower */}
-            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-3 bg-[#0a0d14]/70">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-xs text-white">04 · Core Value Hook</h3>
-                    <p className="text-[10px] font-mono text-slate-400">The primary reason users switch</p>
-                  </div>
+            {/* Q4: Remaining questions */}
+            <div className="glass-panel p-5 rounded-2xl border border-white/10 hover:border-white/20 transition space-y-4 bg-[#0a0d14]/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
+                  <HelpCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-xs text-white uppercase tracking-wider">
+                    A Couple More Questions
+                  </h3>
+                  <p className="text-[10px] font-mono text-slate-400">
+                    These help us get the details right
+                  </p>
                 </div>
               </div>
 
-              <textarea
-                value={superpower}
-                onChange={(e) => setSuperpower(e.target.value)}
-                rows={3}
-                className="w-full bg-[#040508] border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-emerald-400 transition leading-relaxed"
-                placeholder="What is your core differentiator?"
-              />
+              {ambiguities.length > 0 ? (
+                <div className="space-y-3.5">
+                  {ambiguities.map((amb) => (
+                    <div key={amb.id} className="space-y-2 bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                      <p className="text-xs font-semibold text-white leading-tight">{amb.question}</p>
+                      <p className="text-[10px] font-mono text-slate-400 leading-snug">
+                        {amb.contextWhyItMatters}
+                      </p>
+                      <div className="flex flex-col gap-1.5 pt-1">
+                        {amb.options.map((opt, oi) => {
+                          const isSelected = ambiguityAnswers[amb.id] === opt;
+                          return (
+                            <button
+                              key={oi}
+                              type="button"
+                              onClick={() =>
+                                setAmbiguityAnswers((prev) => ({ ...prev, [amb.id]: opt }))
+                              }
+                              className={`text-left text-[11px] p-2 rounded-lg border transition ${
+                                isSelected
+                                  ? "bg-purple-500/20 text-purple-200 border-purple-400 font-medium"
+                                  : "bg-white/5 text-slate-400 hover:text-slate-200 border-white/5"
+                              }`}
+                            >
+                              • {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
 
-              {/* Subtle suggestions */}
-              {activeIntel.altSuperpowers.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <span className="text-[9px] font-mono text-slate-500 uppercase mr-1">Suggestions:</span>
-                  {activeIntel.altSuperpowers.map((alt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSuperpower(alt)}
-                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 border border-white/5 transition"
-                    >
-                      + {alt.slice(0, 36)}...
-                    </button>
+                      {/* Per-ambiguity custom input */}
+                      {!ambiguityShowCustom[amb.id] ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAmbiguityShowCustom((prev) => ({ ...prev, [amb.id]: true }))
+                          }
+                          className="flex items-center gap-1.5 text-[10px] font-mono text-slate-600 hover:text-slate-300 transition pt-0.5"
+                        >
+                          <Plus className="w-2.5 h-2.5" /> Add your own words
+                        </button>
+                      ) : (
+                        <div className="space-y-1 pt-1">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={ambiguityCustom[amb.id] || ""}
+                            onChange={(e) =>
+                              setAmbiguityCustom((prev) => ({ ...prev, [amb.id]: e.target.value }))
+                            }
+                            placeholder="Add more context here..."
+                            className="w-full bg-[#040508] border border-white/10 rounded-lg px-3 py-1.5 text-[11px] text-white focus:outline-none focus:border-purple-400 transition placeholder:text-slate-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAmbiguityShowCustom((prev) => ({ ...prev, [amb.id]: false }))
+                            }
+                            className="text-[10px] text-slate-600 hover:text-slate-400 transition"
+                          >
+                            Done
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-slate-400 leading-relaxed font-sans">
+                  <span className="text-emerald-400 font-semibold block mb-1">✓ All clear!</span>
+                  We have everything we need. Hit the button below to move on.
                 </div>
               )}
             </div>
           </div>
 
-          {/* Bottom Action Footer */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Submit CTA */}
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-xs text-slate-400">
               {data ? (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="text-emerald-300 font-mono">Stage 1 Discovery Locked &amp; Chained</span>
+                  <span className="text-emerald-300 font-mono">Step 1 saved</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-[#FF542E] shrink-0" />
-                  <span>Click below to synthesize and chain into Stage 2 Positioning.</span>
+                  <Zap className="w-4 h-4 text-[#FF542E] shrink-0" />
+                  <span className="font-mono text-[11px]">
+                    AI will use everything above to build your brand strategy.
+                  </span>
                 </>
               )}
             </div>
 
             <button
               type="submit"
-              disabled={isLoading || !problem.trim() || !audience.trim()}
-              className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-extrabold text-xs transition flex items-center gap-2 shadow-xl shadow-[#FF542E]/25 shrink-0"
+              disabled={isLoading || !coreVision.trim() || !coreProblem.trim() || selectedPersonas.length === 0}
+              className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#FF542E] to-[#ff7b47] hover:from-[#ff6947] hover:to-[#ff8d5e] disabled:opacity-40 text-white font-black text-xs transition flex items-center gap-2.5 shadow-xl shadow-[#FF542E]/25 shrink-0 cursor-pointer"
             >
               {isLoading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  Synthesizing Discovery Contract via Groq...
+                  Saving & moving on...
                 </>
               ) : (
                 <>
-                  <span>Confirm Discovery &amp; Advance to Stage 2</span>
+                  <span>Looks good — move to Step 2</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
